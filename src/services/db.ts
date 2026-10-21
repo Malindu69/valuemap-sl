@@ -21,7 +21,29 @@ import { DEMO_RECORDS } from '../data/demoRecords';
 import { MIN_RECORDS_FOR_RELIABLE_STATS } from '../constants';
 import { supabase, isSupabaseConfigured } from './supabase';
 
-const STORAGE_KEY = 'valuemap_sl_records';
+export type AppEnvironment = 'live' | 'demo';
+
+const LIVE_STORAGE_KEY = 'valuemap_sl_records_live_v2';
+const DEMO_STORAGE_KEY = 'valuemap_sl_records_demo_v2';
+const ENV_STORAGE_KEY = 'valuemap_sl_env_mode_v2';
+
+// ─── Environment Detection ─────────────────────────────────────────────────
+
+function detectInitialEnv(): AppEnvironment {
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('demo') === 'true' || params.get('mode') === 'demo') {
+      return 'demo';
+    }
+    const saved = localStorage.getItem(ENV_STORAGE_KEY);
+    if (saved === 'live' || saved === 'demo') {
+      return saved;
+    }
+  }
+  return 'live';
+}
+
+let _currentEnv: AppEnvironment = detectInitialEnv();
 
 // ─── Row Mappers for Supabase ──────────────────────────────────────────────
 
@@ -93,24 +115,42 @@ function fromRow(row: any): ValuationRecord {
 
 // ─── Storage Layer ─────────────────────────────────────────────────────────
 
-function loadFromStorage(): ValuationRecord[] {
+function loadFromStorage(env: AppEnvironment): ValuationRecord[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [...DEMO_RECORDS];
+    const key = env === 'live' ? LIVE_STORAGE_KEY : DEMO_STORAGE_KEY;
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      return env === 'demo' ? [...DEMO_RECORDS] : [];
+    }
     return JSON.parse(raw) as ValuationRecord[];
   } catch {
-    return [...DEMO_RECORDS];
+    return env === 'demo' ? [...DEMO_RECORDS] : [];
   }
 }
 
-function saveToStorage(records: ValuationRecord[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+function saveToStorage(records: ValuationRecord[], env: AppEnvironment = _currentEnv): void {
+  const key = env === 'live' ? LIVE_STORAGE_KEY : DEMO_STORAGE_KEY;
+  localStorage.setItem(key, JSON.stringify(records));
   notifyListeners();
 }
 
 // ─── In-Memory Cache ───────────────────────────────────────────────────────
 
-let _records: ValuationRecord[] = loadFromStorage();
+let _liveRecords: ValuationRecord[] = loadFromStorage('live');
+let _demoRecords: ValuationRecord[] = loadFromStorage('demo');
+
+function getActiveList(): ValuationRecord[] {
+  return _currentEnv === 'live' ? _liveRecords : _demoRecords;
+}
+
+function setActiveList(records: ValuationRecord[]): void {
+  if (_currentEnv === 'live') {
+    _liveRecords = records;
+  } else {
+    _demoRecords = records;
+  }
+  saveToStorage(records, _currentEnv);
+}
 
 type Listener = () => void;
 const _listeners = new Set<Listener>();
@@ -121,9 +161,9 @@ function notifyListeners(): void {
   });
 }
 
-// ─── Supabase Initial Sync ─────────────────────────────────────────────────
+// ─── Supabase Sync (Live Mode Only) ────────────────────────────────────────
 
-async function initSupabaseSync(): Promise<void> {
+async function initSupabaseLiveSync(): Promise<void> {
   if (!isSupabaseConfigured) return;
   try {
     const { data, error } = await supabase.from('valuation_records').select('*');
@@ -131,63 +171,102 @@ async function initSupabaseSync(): Promise<void> {
       console.warn('Supabase query notice:', error.message);
       return;
     }
-    if (data && data.length > 0) {
-      _records = data.map(fromRow);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(_records));
+    if (data) {
+      _liveRecords = data.map(fromRow);
+      localStorage.setItem(LIVE_STORAGE_KEY, JSON.stringify(_liveRecords));
       notifyListeners();
-    } else {
-      // Table is empty in Supabase, seed with initial demo records
-      const rows = _records.map(toRow);
-      const { error: insertErr } = await supabase.from('valuation_records').insert(rows);
-      if (!insertErr) {
-        console.log('Seeded valuation records into Supabase cloud DB');
-      }
     }
   } catch (err) {
-    console.warn('Supabase background sync notice:', err);
+    console.warn('Supabase sync notice:', err);
   }
 }
 
 if (typeof window !== 'undefined') {
-  initSupabaseSync();
+  initSupabaseLiveSync();
 }
 
 // ─── CRUD Operations ───────────────────────────────────────────────────────
 
 export const db = {
-  /** Subscribe to data changes */
+  /** Get current environment mode */
+  getEnvironment(): AppEnvironment {
+    return _currentEnv;
+  },
+
+  /** Switch environment between 'live' and 'demo' */
+  setEnvironment(env: AppEnvironment): void {
+    _currentEnv = env;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(ENV_STORAGE_KEY, env);
+    }
+    if (env === 'live') {
+      initSupabaseLiveSync();
+    }
+    notifyListeners();
+  },
+
+  /** Subscribe to data or environment changes */
   subscribe(fn: Listener): () => void {
     _listeners.add(fn);
     return () => { _listeners.delete(fn); };
   },
 
-  /** Manual sync trigger */
+  /** Manual sync with Supabase (Live mode) */
   async syncWithSupabase(): Promise<void> {
-    await initSupabaseSync();
+    if (_currentEnv === 'live') {
+      await initSupabaseLiveSync();
+    }
   },
 
-  /** Return all active (non-archived) records */
+  /** Clear all records in the live database */
+  async cleanLiveDatabase(): Promise<boolean> {
+    if (isSupabaseConfigured) {
+      try {
+        await supabase
+          .from('valuation_records')
+          .delete()
+          .neq('reference_number', '__placeholder_never_matches__');
+      } catch (err) {
+        console.warn('Supabase clean warning:', err);
+      }
+    }
+    _liveRecords = [];
+    saveToStorage([], 'live');
+    return true;
+  },
+
+  /** Reset demo sandbox to default 15 sample records */
+  resetDemoData(): void {
+    _demoRecords = [...DEMO_RECORDS];
+    saveToStorage(_demoRecords, 'demo');
+  },
+
+  /** Return all active records in the current environment */
   getAll(includeArchived = false): ValuationRecord[] {
-    return includeArchived ? _records : _records.filter((r) => !r.isArchived);
+    const records = getActiveList();
+    return includeArchived ? records : records.filter((r) => !r.isArchived);
   },
 
   getById(id: string): ValuationRecord | undefined {
-    return _records.find((r) => r.id === id);
+    return getActiveList().find((r) => r.id === id);
   },
 
   create(data: Omit<ValuationRecord, 'id' | 'createdAt' | 'updatedAt' | 'pricePerPerch'>): ValuationRecord {
     const now = new Date().toISOString();
+    const isLive = _currentEnv === 'live';
     const record: ValuationRecord = {
       ...data,
       id: generateId(),
       pricePerPerch: calculatePricePerPerch(data.totalLandValue, data.landExtent.perches),
       createdAt: now,
       updatedAt: now,
+      isDemoData: !isLive,
     };
-    _records = [record, ..._records];
-    saveToStorage(_records);
 
-    if (isSupabaseConfigured) {
+    const updated = [record, ...getActiveList()];
+    setActiveList(updated);
+
+    if (isLive && isSupabaseConfigured) {
       supabase.from('valuation_records').insert([toRow(record)]).then(({ error }) => {
         if (error) console.warn('Supabase sync warning:', error.message);
       });
@@ -197,22 +276,23 @@ export const db = {
   },
 
   update(id: string, data: Partial<ValuationRecord>): ValuationRecord | null {
-    const idx = _records.findIndex((r) => r.id === id);
+    const list = getActiveList();
+    const idx = list.findIndex((r) => r.id === id);
     if (idx === -1) return null;
     const updated: ValuationRecord = {
-      ..._records[idx],
+      ...list[idx],
       ...data,
       id,
       updatedAt: new Date().toISOString(),
       pricePerPerch: calculatePricePerPerch(
-        data.totalLandValue ?? _records[idx].totalLandValue,
-        data.landExtent?.perches ?? _records[idx].landExtent.perches,
+        data.totalLandValue ?? list[idx].totalLandValue,
+        data.landExtent?.perches ?? list[idx].landExtent.perches,
       ),
     };
-    _records = [..._records.slice(0, idx), updated, ..._records.slice(idx + 1)];
-    saveToStorage(_records);
+    const newList = [...list.slice(0, idx), updated, ...list.slice(idx + 1)];
+    setActiveList(newList);
 
-    if (isSupabaseConfigured) {
+    if (_currentEnv === 'live' && isSupabaseConfigured) {
       supabase.from('valuation_records').update(toRow(updated)).eq('id', id).then(({ error }) => {
         if (error) console.warn('Supabase sync warning:', error.message);
       });
@@ -231,25 +311,25 @@ export const db = {
     return updated !== null;
   },
 
-  /** Permanently delete */
   delete(id: string): boolean {
-    const before = _records.length;
-    _records = _records.filter((r) => r.id !== id);
-    saveToStorage(_records);
+    const list = getActiveList();
+    const before = list.length;
+    const newList = list.filter((r) => r.id !== id);
+    setActiveList(newList);
 
-    if (isSupabaseConfigured) {
+    if (_currentEnv === 'live' && isSupabaseConfigured) {
       supabase.from('valuation_records').delete().eq('id', id).then(({ error }) => {
         if (error) console.warn('Supabase delete warning:', error.message);
       });
     }
 
-    return _records.length < before;
+    return newList.length < before;
   },
 
-  /** Reset to demo data */
   resetToDemo(): void {
-    _records = [...DEMO_RECORDS];
-    saveToStorage(_records);
+    if (_currentEnv === 'demo') {
+      db.resetDemoData();
+    }
   },
 
   // ─── Filtering & Sorting ─────────────────────────────────────────────────
@@ -393,8 +473,8 @@ export const db = {
     return {
       totalRecords: all.length,
       totalDistricts: Object.keys(districtMap).length,
-      averagePricePerPerch: average(prices),
-      medianPricePerPerch: median(prices),
+      averagePricePerPerch: prices.length ? average(prices) : 0,
+      medianPricePerPerch: prices.length ? median(prices) : 0,
       recentRecords,
       topDistricts: districtStats.slice(0, 5),
       bottomDistricts: [...districtStats].reverse().slice(0, 5),
@@ -406,7 +486,7 @@ export const db = {
   // ─── Duplicate Detection ──────────────────────────────────────────────────
 
   findDuplicates(record: Partial<ValuationRecord>): ValuationRecord[] {
-    return _records.filter((r) =>
+    return getActiveList().filter((r) =>
       areLikelyDuplicates(r, record as ValuationRecord),
     );
   },
@@ -414,20 +494,21 @@ export const db = {
   // ─── Bulk Import ──────────────────────────────────────────────────────────
 
   bulkCreate(records: Omit<ValuationRecord, 'id' | 'createdAt' | 'updatedAt' | 'pricePerPerch'>[]): ValuationRecord[] {
-    const created = records.map((data) => {
-      const now = new Date().toISOString();
-      return {
-        ...data,
-        id: generateId(),
-        pricePerPerch: calculatePricePerPerch(data.totalLandValue, data.landExtent.perches),
-        createdAt: now,
-        updatedAt: now,
-      } as ValuationRecord;
-    });
-    _records = [...created, ..._records];
-    saveToStorage(_records);
+    const now = new Date().toISOString();
+    const isLive = _currentEnv === 'live';
+    const created = records.map((data) => ({
+      ...data,
+      id: generateId(),
+      pricePerPerch: calculatePricePerPerch(data.totalLandValue, data.landExtent.perches),
+      createdAt: now,
+      updatedAt: now,
+      isDemoData: !isLive,
+    } as ValuationRecord));
 
-    if (isSupabaseConfigured) {
+    const updated = [...created, ...getActiveList()];
+    setActiveList(updated);
+
+    if (isLive && isSupabaseConfigured) {
       supabase.from('valuation_records').insert(created.map(toRow)).then(({ error }) => {
         if (error) console.warn('Supabase bulk insert warning:', error.message);
       });

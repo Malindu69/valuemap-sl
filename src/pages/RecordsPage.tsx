@@ -36,8 +36,13 @@ export default function RecordsPage({ onAddNew }: Props) {
   const [showImport, setShowImport] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState<ValuationRecord | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<ValuationRecord | null>(null);
+  const [showCleanConfirm, setShowCleanConfirm] = useState(false);
 
   const refresh = useCallback(() => setRecords(db.getAll(true)), []);
+
+  React.useEffect(() => {
+    return db.subscribe(() => setRecords(db.getAll(true)));
+  }, []);
 
   const filtered = useMemo(() => db.filter(filters, sort), [filters, sort, records]);
 
@@ -143,6 +148,16 @@ export default function RecordsPage({ onAddNew }: Props) {
             <button className="btn btn-ghost btn-sm" onClick={handleExport}>
               <Download size={13} /> Export
             </button>
+            {canAdmin && db.getEnvironment() === 'live' && records.length > 0 && (
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ color: '#ef4444' }}
+                onClick={() => setShowCleanConfirm(true)}
+                title="Wipe live records to start completely clean"
+              >
+                <Trash2 size={13} /> Clean Live DB
+              </button>
+            )}
             <button className="btn btn-primary btn-sm" onClick={onAddNew}>
               <Plus size={13} /> Add
             </button>
@@ -324,6 +339,22 @@ export default function RecordsPage({ onAddNew }: Props) {
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(null)}
           variant="danger"
+        />
+      )}
+
+      {showCleanConfirm && (
+        <ConfirmDialog
+          title="Clean Live Database"
+          message="Are you sure you want to delete all valuation records from your live Supabase database? This will give you a completely fresh, empty database ready for real data."
+          confirmLabel="Wipe Database"
+          variant="danger"
+          onConfirm={async () => {
+            await db.cleanLiveDatabase();
+            refresh();
+            toast.success('Live database has been wiped clean');
+            setShowCleanConfirm(false);
+          }}
+          onCancel={() => setShowCleanConfirm(false)}
         />
       )}
     </div>

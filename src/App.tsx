@@ -14,10 +14,18 @@ import AddEditValuationModal from './components/AddEditValuationModal';
 import './index.css';
 
 import type { GPSCoordinates } from './types';
+import { db, type AppEnvironment } from './services/db';
 
 function AppShell() {
   const { user, logout } = useAuth();
   const [addModal, setAddModal] = React.useState<{ open: boolean; initialCoords?: GPSCoordinates }>({ open: false });
+  const [env, setEnv] = React.useState<AppEnvironment>(() => db.getEnvironment());
+
+  React.useEffect(() => {
+    return db.subscribe(() => {
+      setEnv(db.getEnvironment());
+    });
+  }, []);
 
   if (!user) return <LoginPage />;
 
@@ -41,6 +49,65 @@ function AppShell() {
               <div className="sidebar-logo-sub">Land Valuation</div>
             </div>
           </div>
+        </div>
+
+        {/* ── Environment Switcher (Live vs Demo) ── */}
+        <div style={{
+          margin: '12px 14px 8px',
+          padding: '3px',
+          background: 'var(--surface-2)',
+          borderRadius: 8,
+          display: 'flex',
+          border: '1px solid var(--border-subtle)',
+        }}>
+          <button
+            onClick={() => db.setEnvironment('live')}
+            style={{
+              flex: 1,
+              padding: '6px 4px',
+              fontSize: 11,
+              fontWeight: 600,
+              borderRadius: 6,
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 5,
+              background: env === 'live' ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+              color: env === 'live' ? '#34d399' : 'var(--text-muted)',
+              boxShadow: env === 'live' ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+            title="Production Live Database (Supabase Cloud)"
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: env === 'live' ? '#10b981' : '#64748b' }}></span>
+            Live DB
+          </button>
+          <button
+            onClick={() => db.setEnvironment('demo')}
+            style={{
+              flex: 1,
+              padding: '6px 4px',
+              fontSize: 11,
+              fontWeight: 600,
+              borderRadius: 6,
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 5,
+              background: env === 'demo' ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+              color: env === 'demo' ? '#fcd34d' : 'var(--text-muted)',
+              boxShadow: env === 'demo' ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+            title="Demo Sandbox with 15 Sri Lanka valuations"
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: env === 'demo' ? '#f59e0b' : '#64748b' }}></span>
+            Demo Sandbox
+          </button>
         </div>
 
         <nav className="sidebar-nav">
@@ -83,14 +150,56 @@ function AppShell() {
       </aside>
 
       {/* ── Pages ── */}
-      <div className="main-content">
-        <Routes>
-          <Route path="/dashboard" element={<DashboardPage onAddNew={() => setAddModal({ open: true })} />} />
-          <Route path="/map" element={<MapPage onAddNew={(coords) => setAddModal({ open: true, initialCoords: coords })} />} />
-          <Route path="/records" element={<RecordsPage onAddNew={() => setAddModal({ open: true })} />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+      <div className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
+        {/* Demo Mode Banner */}
+        {env === 'demo' && (
+          <div style={{
+            background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.1))',
+            borderBottom: '1px solid rgba(245, 158, 11, 0.3)',
+            padding: '8px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: 12,
+            color: '#fcd34d',
+            flexShrink: 0,
+            zIndex: 100,
+            flexWrap: 'wrap',
+            gap: 8,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14 }}>⚠️</span>
+              <strong>DEMO SANDBOX MODE:</strong>
+              <span>Viewing sample Sri Lanka land valuations. Changes made here will not affect your live database.</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                onClick={() => db.resetDemoData()}
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: 11, padding: '3px 8px', color: '#fcd34d' }}
+              >
+                Reset Demo Data
+              </button>
+              <button
+                onClick={() => db.setEnvironment('live')}
+                className="btn btn-sm"
+                style={{ fontSize: 11, padding: '3px 12px', background: '#10b981', color: '#fff', border: 'none', fontWeight: 600 }}
+              >
+                Switch to Live DB
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <Routes>
+            <Route path="/dashboard" element={<DashboardPage onAddNew={() => setAddModal({ open: true })} />} />
+            <Route path="/map" element={<MapPage onAddNew={(coords) => setAddModal({ open: true, initialCoords: coords })} />} />
+            <Route path="/records" element={<RecordsPage onAddNew={() => setAddModal({ open: true })} />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </div>
       </div>
 
       {addModal.open && (
