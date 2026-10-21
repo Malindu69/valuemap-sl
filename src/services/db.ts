@@ -19,8 +19,77 @@ import {
 } from '../utils';
 import { DEMO_RECORDS } from '../data/demoRecords';
 import { MIN_RECORDS_FOR_RELIABLE_STATS } from '../constants';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 const STORAGE_KEY = 'valuemap_sl_records';
+
+// ─── Row Mappers for Supabase ──────────────────────────────────────────────
+
+function toRow(r: ValuationRecord) {
+  return {
+    id: r.id,
+    reference_number: r.referenceNumber,
+    report_reference: r.reportReference || null,
+    title: r.title,
+    address: r.address,
+    province: r.province,
+    district: r.district,
+    divisional_secretariat: r.divisionalSecretariat || null,
+    town: r.town,
+    latitude: r.coordinates.lat,
+    longitude: r.coordinates.lng,
+    extent_perches: r.landExtent.perches,
+    land_type: r.landType,
+    road_access: r.roadAccess,
+    property_characteristics: r.propertyCharacteristics || null,
+    valuation_date: r.valuationDate,
+    total_land_value: r.totalLandValue,
+    price_per_perch: r.pricePerPerch,
+    valuer_name: r.valuerName || null,
+    valuation_purpose: r.valuationPurpose || null,
+    notes: r.notes || null,
+    is_archived: r.isArchived,
+    is_demo_data: r.isDemoData,
+    created_at: r.createdAt,
+    updated_at: r.updatedAt,
+  };
+}
+
+function fromRow(row: any): ValuationRecord {
+  return {
+    id: String(row.id),
+    referenceNumber: row.reference_number,
+    reportReference: row.report_reference ?? undefined,
+    title: row.title,
+    address: row.address,
+    province: row.province,
+    district: row.district,
+    divisionalSecretariat: row.divisional_secretariat ?? undefined,
+    town: row.town,
+    coordinates: {
+      lat: Number(row.latitude) || 0,
+      lng: Number(row.longitude) || 0,
+    },
+    landExtent: {
+      perches: Number(row.extent_perches) || 0,
+    },
+    landType: row.land_type,
+    roadAccess: row.road_access,
+    propertyCharacteristics: row.property_characteristics ?? undefined,
+    valuationDate: row.valuation_date,
+    totalLandValue: Number(row.total_land_value) || 0,
+    pricePerPerch: Number(row.price_per_perch) || 0,
+    valuerName: row.valuer_name ?? undefined,
+    valuationPurpose: row.valuation_purpose ?? undefined,
+    notes: row.notes ?? undefined,
+    createdBy: row.created_by ?? 'system',
+    updatedBy: row.updated_by ?? 'system',
+    isArchived: Boolean(row.is_archived),
+    isDemoData: Boolean(row.is_demo_data),
+    createdAt: row.created_at ?? new Date().toISOString(),
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+  };
+}
 
 // ─── Storage Layer ─────────────────────────────────────────────────────────
 
@@ -52,13 +121,49 @@ function notifyListeners(): void {
   });
 }
 
+// ─── Supabase Initial Sync ─────────────────────────────────────────────────
+
+async function initSupabaseSync(): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  try {
+    const { data, error } = await supabase.from('valuation_records').select('*');
+    if (error) {
+      console.warn('Supabase query notice:', error.message);
+      return;
+    }
+    if (data && data.length > 0) {
+      _records = data.map(fromRow);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(_records));
+      notifyListeners();
+    } else {
+      // Table is empty in Supabase, seed with initial demo records
+      const rows = _records.map(toRow);
+      const { error: insertErr } = await supabase.from('valuation_records').insert(rows);
+      if (!insertErr) {
+        console.log('Seeded valuation records into Supabase cloud DB');
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase background sync notice:', err);
+  }
+}
+
+if (typeof window !== 'undefined') {
+  initSupabaseSync();
+}
+
 // ─── CRUD Operations ───────────────────────────────────────────────────────
 
 export const db = {
-  /** Subscribe to data changes (create, update, delete, restore, etc.) */
+  /** Subscribe to data changes */
   subscribe(fn: Listener): () => void {
     _listeners.add(fn);
     return () => { _listeners.delete(fn); };
+  },
+
+  /** Manual sync trigger */
+  async syncWithSupabase(): Promise<void> {
+    await initSupabaseSync();
   },
 
   /** Return all active (non-archived) records */
@@ -81,6 +186,13 @@ export const db = {
     };
     _records = [record, ..._records];
     saveToStorage(_records);
+
+    if (isSupabaseConfigured) {
+      supabase.from('valuation_records').insert([toRow(record)]).then(({ error }) => {
+        if (error) console.warn('Supabase sync warning:', error.message);
+      });
+    }
+
     return record;
   },
 
@@ -99,6 +211,13 @@ export const db = {
     };
     _records = [..._records.slice(0, idx), updated, ..._records.slice(idx + 1)];
     saveToStorage(_records);
+
+    if (isSupabaseConfigured) {
+      supabase.from('valuation_records').update(toRow(updated)).eq('id', id).then(({ error }) => {
+        if (error) console.warn('Supabase sync warning:', error.message);
+      });
+    }
+
     return updated;
   },
 
@@ -112,11 +231,18 @@ export const db = {
     return updated !== null;
   },
 
-  /** Permanently delete — requires confirmation from caller */
+  /** Permanently delete */
   delete(id: string): boolean {
     const before = _records.length;
     _records = _records.filter((r) => r.id !== id);
     saveToStorage(_records);
+
+    if (isSupabaseConfigured) {
+      supabase.from('valuation_records').delete().eq('id', id).then(({ error }) => {
+        if (error) console.warn('Supabase delete warning:', error.message);
+      });
+    }
+
     return _records.length < before;
   },
 
@@ -157,65 +283,64 @@ export const db = {
 
     if (sort) {
       result = [...result].sort((a, b) => {
-        let va: number | string;
-        let vb: number | string;
-        switch (sort.field) {
-          case 'valuationDate':
-            va = a.valuationDate; vb = b.valuationDate; break;
-          case 'pricePerPerch':
-            va = a.pricePerPerch; vb = b.pricePerPerch; break;
-          case 'landExtent':
-            va = a.landExtent.perches; vb = b.landExtent.perches; break;
-          default:
-            va = a.createdAt; vb = b.createdAt;
+        let va: string | number = a[sort.field] as string | number;
+        let vb: string | number = b[sort.field] as string | number;
+        if (sort.field === 'landExtent') {
+          va = a.landExtent.perches;
+          vb = b.landExtent.perches;
         }
-        if (va < vb) return sort.direction === 'asc' ? -1 : 1;
-        if (va > vb) return sort.direction === 'asc' ? 1 : -1;
-        return 0;
+        if (typeof va === 'string') {
+          return sort.direction === 'asc'
+            ? (va as string).localeCompare(vb as string)
+            : (vb as string).localeCompare(va as string);
+        }
+        return sort.direction === 'asc' ? (va as number) - (vb as number) : (vb as number) - (va as number);
       });
     }
 
     return result;
   },
 
-  // ─── Area Statistics ─────────────────────────────────────────────────────
+  // ─── Area Statistics ──────────────────────────────────────────────────────
 
   getAreaStatistics(center: GPSCoordinates, radiusKm: SearchRadius): AreaStatistics {
-    const nearby = _records.filter(
-      (r) => !r.isArchived && haversineDistance(center, r.coordinates) <= radiusKm,
-    );
+    const all = db.getAll();
+    const recordsWithDistance = all
+      .map((r) => ({ record: r, distance: haversineDistance(center, r.coordinates) }))
+      .filter(({ distance }) => distance <= radiusKm)
+      .sort((a, b) => a.distance - b.distance);
 
-    const prices = nearby.map((r) => r.pricePerPerch);
+    const nearbyRecords = recordsWithDistance.map(({ record }) => record);
+    const count = nearbyRecords.length;
+    const prices = nearbyRecords.map((r) => r.pricePerPerch);
 
     const byLandType: AreaStatistics['byLandType'] = {};
-    const typeGroups: Partial<Record<LandType, number[]>> = {};
-    for (const r of nearby) {
-      if (!typeGroups[r.landType]) typeGroups[r.landType] = [];
-      typeGroups[r.landType]!.push(r.pricePerPerch);
-    }
-    for (const [type, vals] of Object.entries(typeGroups)) {
-      byLandType[type as LandType] = {
-        count: vals.length,
-        median: median(vals),
-      };
+    for (const r of nearbyRecords) {
+      if (!byLandType[r.landType]) {
+        const typeRecords = nearbyRecords.filter((x) => x.landType === r.landType);
+        const typePrices = typeRecords.map((x) => x.pricePerPerch);
+        byLandType[r.landType] = {
+          count: typeRecords.length,
+          median: median(typePrices),
+        };
+      }
     }
 
-    const sortedByDate = [...nearby].sort((a, b) =>
-      b.valuationDate.localeCompare(a.valuationDate),
-    );
+    const dates = nearbyRecords.map((r) => r.valuationDate).sort();
+    const mostRecentDate = dates[dates.length - 1] ?? '';
 
     return {
-      count: nearby.length,
-      averagePricePerPerch: average(prices),
+      center,
+      radiusKm,
+      count,
       medianPricePerPerch: median(prices),
+      averagePricePerPerch: average(prices),
       minPricePerPerch: prices.length ? Math.min(...prices) : 0,
       maxPricePerPerch: prices.length ? Math.max(...prices) : 0,
-      mostRecentDate: sortedByDate[0]?.valuationDate ?? '',
+      records: nearbyRecords,
       byLandType,
-      records: sortedByDate.slice(0, 10),
-      radiusKm,
-      center,
-      hasEnoughData: nearby.length >= MIN_RECORDS_FOR_RELIABLE_STATS,
+      mostRecentDate,
+      hasEnoughData: count >= MIN_RECORDS_FOR_RELIABLE_STATS,
     };
   },
 
@@ -225,30 +350,32 @@ export const db = {
     const all = db.getAll();
     const prices = all.map((r) => r.pricePerPerch);
 
-    // By district
     const districtMap: Record<string, number[]> = {};
     for (const r of all) {
       if (!districtMap[r.district]) districtMap[r.district] = [];
       districtMap[r.district].push(r.pricePerPerch);
     }
-    const districtStats = Object.entries(districtMap)
-      .map(([district, vals]) => ({ district, median: median(vals), count: vals.length }))
-      .filter((d) => d.count >= 1)
-      .sort((a, b) => b.median - a.median);
 
-    // By land type
-    const typeMap: Partial<Record<LandType, number[]>> = {};
-    for (const r of all) {
-      if (!typeMap[r.landType]) typeMap[r.landType] = [];
-      typeMap[r.landType]!.push(r.pricePerPerch);
-    }
-    const byLandType = Object.entries(typeMap).map(([type, vals]) => ({
-      type: type as LandType,
-      count: vals.length,
-      median: median(vals),
+    const districtStats = Object.entries(districtMap).map(([district, p]) => ({
+      district,
+      count: p.length,
+      median: median(p),
+      average: average(p),
     }));
 
-    // Monthly activity
+    const typeCount: Record<string, number> = {};
+    for (const r of all) {
+      typeCount[r.landType] = (typeCount[r.landType] ?? 0) + 1;
+    }
+    const byLandType = Object.entries(typeCount).map(([type, count]) => {
+      const typePrices = all.filter((r) => r.landType === type).map((r) => r.pricePerPerch);
+      return {
+        type: type as LandType,
+        count,
+        median: median(typePrices),
+      };
+    });
+
     const monthMap: Record<string, number> = {};
     for (const r of all) {
       const k = monthKey(r.valuationDate);
@@ -299,6 +426,13 @@ export const db = {
     });
     _records = [...created, ..._records];
     saveToStorage(_records);
+
+    if (isSupabaseConfigured) {
+      supabase.from('valuation_records').insert(created.map(toRow)).then(({ error }) => {
+        if (error) console.warn('Supabase bulk insert warning:', error.message);
+      });
+    }
+
     return created;
   },
 };
