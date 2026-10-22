@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Map, PlusCircle, List, BarChart3, LogOut, MapPin, Menu, X,
+  LayoutDashboard, Map, PlusCircle, List, BarChart3, LogOut, MapPin, Menu, X, Eye,
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
@@ -21,13 +21,19 @@ import { db } from './services/db';
 db.setEnvironment('live');
 
 function AppShell() {
-  const { user, logout } = useAuth();
+  const { user, logout, canEdit } = useAuth();
   const [addModal, setAddModal] = React.useState<{ open: boolean; initialCoords?: GPSCoordinates }>({ open: false });
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   if (!user) return <LoginPage />;
 
-  const initials = user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+  const isGuest = user.id === 'guest';
+  const initials = isGuest ? '👁' : user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+
+  function openAdd() {
+    if (!canEdit) return; // guests can't add
+    setAddModal({ open: true });
+  }
 
   return (
     <div className="app-shell">
@@ -55,7 +61,6 @@ function AppShell() {
               <div className="sidebar-logo-sub">Land Valuation</div>
             </div>
           </div>
-          {/* Close button visible only on mobile */}
           <button
             className="sidebar-close-btn"
             onClick={() => setSidebarOpen(false)}
@@ -64,6 +69,28 @@ function AppShell() {
             <X size={18} />
           </button>
         </div>
+
+        {/* Guest notice banner */}
+        {isGuest && (
+          <div style={{
+            margin: '10px 12px',
+            padding: '8px 12px',
+            background: 'rgba(16,185,129,0.08)',
+            border: '1px solid rgba(16,185,129,0.2)',
+            borderRadius: 8,
+            fontSize: 11,
+            color: '#34d399',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}>
+            <Eye size={13} />
+            <div>
+              <div style={{ fontWeight: 600 }}>View-Only Mode</div>
+              <div style={{ color: 'var(--text-muted)', marginTop: 1 }}>Sign in to add records</div>
+            </div>
+          </div>
+        )}
 
         <nav className="sidebar-nav">
           <div className="nav-section-label">Main</div>
@@ -80,24 +107,30 @@ function AppShell() {
             <BarChart3 size={16} /> Analytics
           </NavLink>
 
-          <div className="nav-section-label" style={{ marginTop: 8 }}>Actions</div>
-          <button
-            className="nav-item"
-            onClick={() => { setAddModal({ open: true }); setSidebarOpen(false); }}
-            style={{ color: '#10b981', fontWeight: 600 }}
-          >
-            <PlusCircle size={16} /> Add Valuation
-          </button>
+          {canEdit && (
+            <>
+              <div className="nav-section-label" style={{ marginTop: 8 }}>Actions</div>
+              <button
+                className="nav-item"
+                onClick={() => { openAdd(); setSidebarOpen(false); }}
+                style={{ color: '#10b981', fontWeight: 600 }}
+              >
+                <PlusCircle size={16} /> Add Valuation
+              </button>
+            </>
+          )}
         </nav>
 
         <div className="sidebar-footer">
           <div className="user-card">
-            <div className="user-avatar">{initials}</div>
+            <div className="user-avatar" style={isGuest ? { fontSize: 16, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)' } : {}}>
+              {initials}
+            </div>
             <div className="user-info">
               <div className="user-name">{user.name}</div>
-              <div className="user-role">{user.role}</div>
+              <div className="user-role">{isGuest ? 'Guest Viewer' : user.role}</div>
             </div>
-            <button className="logout-btn" onClick={logout} title="Logout">
+            <button className="logout-btn" onClick={logout} title={isGuest ? 'Back to Login' : 'Logout'}>
               <LogOut size={15} />
             </button>
           </div>
@@ -116,21 +149,25 @@ function AppShell() {
             <Menu size={22} />
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <MapPin size={16} color="#60a5fa" />
-            <span style={{ fontWeight: 700, fontSize: 15, background: 'linear-gradient(135deg, #60a5fa, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            <MapPin size={15} color="#60a5fa" />
+            <span style={{ fontWeight: 700, fontSize: 14, background: 'linear-gradient(135deg, #60a5fa, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               ValueMap SL
             </span>
           </div>
-          <button className="hamburger-btn" onClick={() => { setAddModal({ open: true }); }} aria-label="Add valuation" style={{ color: '#10b981' }}>
-            <PlusCircle size={22} />
-          </button>
+          {canEdit ? (
+            <button className="hamburger-btn" onClick={openAdd} aria-label="Add valuation" style={{ color: '#10b981' }}>
+              <PlusCircle size={22} />
+            </button>
+          ) : (
+            <div style={{ width: 36 }} />
+          )}
         </div>
 
         <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Routes>
-            <Route path="/dashboard" element={<DashboardPage onAddNew={() => setAddModal({ open: true })} />} />
-            <Route path="/map" element={<MapPage onAddNew={(coords) => setAddModal({ open: true, initialCoords: coords })} />} />
-            <Route path="/records" element={<RecordsPage onAddNew={() => setAddModal({ open: true })} />} />
+            <Route path="/dashboard" element={<DashboardPage onAddNew={openAdd} />} />
+            <Route path="/map" element={<MapPage onAddNew={(coords) => { if (canEdit) setAddModal({ open: true, initialCoords: coords }); }} />} />
+            <Route path="/records" element={<RecordsPage onAddNew={openAdd} />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
@@ -146,22 +183,36 @@ function AppShell() {
             <Map size={20} />
             <span>Map</span>
           </NavLink>
-          <button className="mobile-nav-item mobile-nav-add" onClick={() => setAddModal({ open: true })}>
-            <PlusCircle size={24} />
-            <span>Add</span>
-          </button>
+          {canEdit ? (
+            <button className="mobile-nav-item mobile-nav-add" onClick={openAdd}>
+              <PlusCircle size={24} />
+              <span>Add</span>
+            </button>
+          ) : (
+            <NavLink to="/analytics" className={({ isActive }) => `mobile-nav-item ${isActive ? 'active' : ''}`}>
+              <BarChart3 size={20} />
+              <span>Analytics</span>
+            </NavLink>
+          )}
           <NavLink to="/records" className={({ isActive }) => `mobile-nav-item ${isActive ? 'active' : ''}`}>
             <List size={20} />
             <span>Records</span>
           </NavLink>
-          <NavLink to="/analytics" className={({ isActive }) => `mobile-nav-item ${isActive ? 'active' : ''}`}>
-            <BarChart3 size={20} />
-            <span>Analytics</span>
-          </NavLink>
+          {canEdit ? (
+            <NavLink to="/analytics" className={({ isActive }) => `mobile-nav-item ${isActive ? 'active' : ''}`}>
+              <BarChart3 size={20} />
+              <span>Analytics</span>
+            </NavLink>
+          ) : (
+            <button className="mobile-nav-item" onClick={logout} style={{ color: 'var(--text-muted)' }}>
+              <LogOut size={20} />
+              <span>Sign In</span>
+            </button>
+          )}
         </nav>
       </div>
 
-      {addModal.open && (
+      {addModal.open && canEdit && (
         <AddEditValuationModal
           initialCoordinates={addModal.initialCoords}
           onClose={() => setAddModal({ open: false })}

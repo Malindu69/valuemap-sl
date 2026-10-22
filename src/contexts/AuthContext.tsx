@@ -61,6 +61,7 @@ function getSession(): User | null {
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<{ error?: string }>;
+  guestLogin: () => void;
   logout: () => void;
   canEdit: boolean;
   canAdmin: boolean;
@@ -100,11 +101,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState({ user: null, isLoading: false });
   }, []);
 
+  const guestLogin = useCallback(() => {
+    const guest: User = {
+      id: 'guest',
+      email: 'guest@valuemap.lk',
+      name: 'Guest Viewer',
+      role: 'viewer',
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(guest));
+    setState({ user: guest, isLoading: false });
+  }, []);
+
   const canEdit = state.user?.role === 'admin' || state.user?.role === 'valuer';
   const canAdmin = state.user?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ ...state, login, logout, canEdit, canAdmin }}>
+    <AuthContext.Provider value={{ ...state, login, guestLogin, logout, canEdit, canAdmin }}>
       {children}
     </AuthContext.Provider>
   );

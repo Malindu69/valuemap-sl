@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import {
   LayoutDashboard, TrendingUp, MapPin, Building2, Calendar,
-  ArrowUpRight, ArrowDownRight, Plus, AlertTriangle,
+  ArrowUpRight, Plus,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -38,31 +38,20 @@ export default function DashboardPage({ onAddNew }: Props) {
 
   return (
     <div style={{ overflow: 'auto', height: '100%' }}>
-      <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
+      <div style={{ padding: '20px 20px 32px', maxWidth: 1400, margin: '0 auto' }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>
+            <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>
               Dashboard
             </h1>
             <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>
               Overview of your land valuation records
             </p>
           </div>
-          <button className="btn btn-primary" onClick={onAddNew}>
+          <button className="btn btn-primary" onClick={onAddNew} style={{ whiteSpace: 'nowrap' }}>
             <Plus size={15} /> Add Valuation
           </button>
-        </div>
-
-        {/* Demo banner */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 16px', marginBottom: 24,
-          background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
-          borderRadius: 'var(--radius)', color: '#fcd34d', fontSize: 12,
-        }}>
-          <AlertTriangle size={14} />
-          Demo mode — all sample records are fictional and for demonstration purposes only. Your added records are saved locally.
         </div>
 
         {/* KPI Row */}
@@ -102,7 +91,7 @@ export default function DashboardPage({ onAddNew }: Props) {
         </div>
 
         {/* Charts Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 20 }}>
           {/* Monthly Activity */}
           <div className="card">
             <div className="card-header">
@@ -159,7 +148,7 @@ export default function DashboardPage({ onAddNew }: Props) {
         </div>
 
         {/* Districts and Recent */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 20 }}>
           {/* Top Districts */}
           <div className="card">
             <div className="card-header" style={{ marginBottom: 12 }}>
@@ -219,7 +208,7 @@ export default function DashboardPage({ onAddNew }: Props) {
         </div>
 
         {/* Price Distribution Bar */}
-        <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card" style={{ marginBottom: 20 }}>
           <div className="card-header">
             <span className="card-title">Price Distribution (per perch)</span>
           </div>
