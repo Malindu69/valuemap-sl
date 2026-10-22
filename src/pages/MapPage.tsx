@@ -156,15 +156,15 @@ export default function MapPage({ onAddNew }: Props) {
   return (
     <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* ── Top Bar ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '10px 16px',
+      <div className="map-page-topbar" style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '8px 14px',
         background: 'var(--surface-1)',
         borderBottom: '1px solid var(--border-subtle)',
         flexShrink: 0, zIndex: 10, flexWrap: 'wrap',
       }}>
         {/* Search */}
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: 6, flex: 1, minWidth: 220 }}>
+        <form onSubmit={handleSearch} style={{ display: 'flex', gap: 6, flex: 1, minWidth: 150 }}>
           <div className="search-wrap" style={{ flex: 1 }}>
             <Search size={14} className="search-icon" />
             <input

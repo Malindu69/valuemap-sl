@@ -2,15 +2,15 @@ import React, { useState, useMemo, useCallback } from 'react';
 import {
   Search, Filter, Plus, Download, Upload, Edit3, Archive,
   Trash2, Eye, RotateCcw, ChevronUp, ChevronDown, FileText,
-  CheckCircle, AlertTriangle, X,
+  CheckCircle, AlertTriangle, X, Shield, Sparkles,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { db } from '../services/db';
 import {
-  formatLKR, formatDate, formatExtent, formatDateTime,
+  formatLKR, formatDate, formatExtent,
 } from '../utils';
 import {
-  LAND_TYPE_LABELS, ROAD_ACCESS_LABELS, DISTRICTS_BY_PROVINCE, PROVINCES,
+  LAND_TYPE_LABELS, DISTRICTS_BY_PROVINCE, PROVINCES,
 } from '../constants';
 import type {
   ValuationRecord, ValuationFilters, SortConfig, SortField, Province, LandType,
@@ -20,6 +20,7 @@ import { useToast } from '../contexts/ToastContext';
 import AddEditValuationModal from '../components/AddEditValuationModal';
 import ValuationDetailModal from '../components/ValuationDetailModal';
 import ImportModal from '../components/ImportModal';
+import BackupRecoveryModal from '../components/BackupRecoveryModal';
 
 interface Props { onAddNew: () => void; }
 
@@ -28,23 +29,48 @@ export default function RecordsPage({ onAddNew }: Props) {
   const toast = useToast();
 
   const [records, setRecords] = useState<ValuationRecord[]>(() => db.getAll(true));
+  const [trashRecords, setTrashRecords] = useState<ValuationRecord[]>(() => db.getTrash());
+  const [tab, setTab] = useState<'active' | 'trash'>('active');
   const [filters, setFilters] = useState<ValuationFilters>({});
   const [sort, setSort] = useState<SortConfig>({ field: 'valuationDate', direction: 'desc' });
   const [showFilters, setShowFilters] = useState(false);
   const [editRecord, setEditRecord] = useState<ValuationRecord | null>(null);
   const [viewRecord, setViewRecord] = useState<ValuationRecord | null>(null);
   const [showImport, setShowImport] = useState(false);
-  const [confirmArchive, setConfirmArchive] = useState<ValuationRecord | null>(null);
+  const [showBackups, setShowBackups] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<ValuationRecord | null>(null);
   const [showCleanConfirm, setShowCleanConfirm] = useState(false);
+  const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
 
-  const refresh = useCallback(() => setRecords(db.getAll(true)), []);
-
-  React.useEffect(() => {
-    return db.subscribe(() => setRecords(db.getAll(true)));
+  const refresh = useCallback(() => {
+    setRecords(db.getAll(true));
+    setTrashRecords(db.getTrash());
   }, []);
 
-  const filtered = useMemo(() => db.filter(filters, sort), [filters, sort, records]);
+  React.useEffect(() => {
+    return db.subscribe(refresh);
+  }, [refresh]);
+
+  // Active records: only non-archived
+  const activeRecords = useMemo(() => records.filter((r) => !r.isArchived), [records]);
+
+  // List to display according to active tab
+  const displayList = useMemo(() => {
+    if (tab === 'trash') {
+      let res = [...trashRecords];
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
+        res = res.filter((r) =>
+          r.title.toLowerCase().includes(q) ||
+          r.referenceNumber.toLowerCase().includes(q) ||
+          r.district.toLowerCase().includes(q) ||
+          r.town.toLowerCase().includes(q)
+        );
+      }
+      return res;
+    }
+    return db.filter(filters, sort);
+  }, [tab, trashRecords, filters, sort, records]);
 
   function handleSort(field: SortField) {
     setSort((s) => ({
@@ -60,7 +86,7 @@ export default function RecordsPage({ onAddNew }: Props) {
 
   // Export
   function handleExport() {
-    const rows = filtered.map((r) => ({
+    const rows = displayList.map((r) => ({
       'Reference No.': r.referenceNumber,
       'Report Ref.': r.reportReference ?? '',
       Title: r.title,
@@ -90,26 +116,34 @@ export default function RecordsPage({ onAddNew }: Props) {
     toast.success(`Exported ${rows.length} records to Excel`);
   }
 
-  function handleArchive() {
-    if (!confirmArchive) return;
-    db.archive(confirmArchive.id);
+  // Soft-Delete (Move to Recycle Bin)
+  function handleMoveToTrash(r: ValuationRecord) {
+    db.delete(r.id);
     refresh();
-    toast.info(`Record archived: ${confirmArchive.referenceNumber}`);
-    setConfirmArchive(null);
+    toast.info(`Moved to Recycle Bin: ${r.referenceNumber}`);
   }
 
-  function handleRestore(r: ValuationRecord) {
+  // Recover record
+  function handleRecover(r: ValuationRecord) {
     db.restore(r.id);
     refresh();
-    toast.success(`Record restored: ${r.referenceNumber}`);
+    toast.success(`Recovered record: ${r.referenceNumber}`);
   }
 
-  function handleDelete() {
-    if (!confirmDelete) return;
-    db.delete(confirmDelete.id);
+  // Recover All
+  function handleRecoverAll() {
+    trashRecords.forEach((r) => db.restore(r.id));
     refresh();
-    toast.warning(`Record permanently deleted: ${confirmDelete.referenceNumber}`);
+    toast.success(`All ${trashRecords.length} records recovered!`);
+  }
+
+  // Permanently delete
+  function handlePermanentDelete() {
+    if (!confirmDelete) return;
+    db.restore(confirmDelete.id); // temporarily bring to delete completely
+    db.delete(confirmDelete.id);
     setConfirmDelete(null);
+    refresh();
   }
 
   const districts = useMemo(() => {
@@ -121,26 +155,80 @@ export default function RecordsPage({ onAddNew }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Top bar */}
       <div style={{
-        padding: '14px 20px', borderBottom: '1px solid var(--border-subtle)',
+        padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)',
         background: 'var(--surface-1)', flexShrink: 0,
-        display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
       }}>
-        <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 18, fontWeight: 700, flex: 1 }}>
-          Valuation Records
-        </h1>
-        <div className="search-wrap" style={{ width: 260 }}>
+        {/* Tab switch */}
+        <div style={{
+          display: 'flex', background: 'var(--surface-2)', borderRadius: 8, padding: 3, gap: 3,
+        }}>
+          <button
+            onClick={() => setTab('active')}
+            style={{
+              padding: '6px 14px', borderRadius: 6, border: 'none',
+              background: tab === 'active' ? 'var(--brand-600)' : 'transparent',
+              color: tab === 'active' ? '#fff' : 'var(--text-secondary)',
+              fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <span>Active</span>
+            <span style={{
+              background: tab === 'active' ? 'rgba(255,255,255,0.2)' : 'var(--surface-3)',
+              borderRadius: 12, padding: '1px 6px', fontSize: 11,
+            }}>
+              {activeRecords.length}
+            </span>
+          </button>
+          <button
+            onClick={() => setTab('trash')}
+            style={{
+              padding: '6px 14px', borderRadius: 6, border: 'none',
+              background: tab === 'trash' ? 'rgba(239,68,68,0.2)' : 'transparent',
+              color: tab === 'trash' ? '#f87171' : 'var(--text-muted)',
+              fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <Trash2 size={13} />
+            <span>Recycle Bin</span>
+            {trashRecords.length > 0 && (
+              <span style={{
+                background: '#ef4444', color: '#fff',
+                borderRadius: 12, padding: '1px 6px', fontSize: 10, fontWeight: 700,
+              }}>
+                {trashRecords.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="search-wrap" style={{ flex: 1, minWidth: 180, maxWidth: 300 }}>
           <Search size={14} className="search-icon" />
           <input
             className="search-input"
-            placeholder="Search records…"
+            placeholder={tab === 'trash' ? 'Search recycle bin…' : 'Search records…'}
             value={filters.search ?? ''}
             onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value || undefined }))}
           />
         </div>
-        <button className={`btn btn-ghost btn-sm ${showFilters ? 'btn-primary' : ''}`} onClick={() => setShowFilters((v) => !v)}>
-          <Filter size={13} /> Filters
+
+        {tab === 'active' && (
+          <button className={`btn btn-ghost btn-sm ${showFilters ? 'btn-primary' : ''}`} onClick={() => setShowFilters((v) => !v)}>
+            <Filter size={13} /> Filters
+          </button>
+        )}
+
+        {/* Backups & Recovery button */}
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => setShowBackups(true)}
+          title="View backup snapshots, restore wiped database, or upload JSON backup"
+        >
+          <Shield size={13} color="#60a5fa" /> Recovery
         </button>
-        {canEdit && (
+
+        {canEdit && tab === 'active' && (
           <>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowImport(true)}>
               <Upload size={13} /> Import
@@ -148,12 +236,12 @@ export default function RecordsPage({ onAddNew }: Props) {
             <button className="btn btn-ghost btn-sm" onClick={handleExport}>
               <Download size={13} /> Export
             </button>
-            {canAdmin && db.getEnvironment() === 'live' && records.length > 0 && (
+            {canAdmin && db.getEnvironment() === 'live' && activeRecords.length > 0 && (
               <button
                 className="btn btn-ghost btn-sm"
                 style={{ color: '#ef4444' }}
                 onClick={() => setShowCleanConfirm(true)}
-                title="Wipe live records to start completely clean"
+                title="Wipe database with automatic recovery snapshot"
               >
                 <Trash2 size={13} /> Clean Live DB
               </button>
@@ -163,22 +251,61 @@ export default function RecordsPage({ onAddNew }: Props) {
             </button>
           </>
         )}
+
+        {tab === 'trash' && trashRecords.length > 0 && (
+          <>
+            <button className="btn btn-success btn-sm" onClick={handleRecoverAll}>
+              <RotateCcw size={13} /> Recover All ({trashRecords.length})
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ color: '#ef4444' }}
+              onClick={() => setShowEmptyTrashConfirm(true)}
+            >
+              Empty Bin
+            </button>
+          </>
+        )}
       </div>
 
-      {/* Filter bar */}
-      {showFilters && (
+      {/* Recycle Bin Notice Banner */}
+      {tab === 'trash' && (
         <div style={{
-          padding: '10px 20px', background: 'var(--surface-2)',
+          padding: '8px 16px', background: 'rgba(239, 68, 68, 0.08)',
+          borderBottom: '1px solid rgba(239, 68, 68, 0.2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          fontSize: 12, color: '#fca5a5',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <RotateCcw size={14} />
+            <span>
+              <strong>Recycle Bin:</strong> Removed valuations stay here safely. Click <strong>"Recover"</strong> to bring any record back to live.
+            </span>
+          </div>
+          <button
+            onClick={() => setTab('active')}
+            className="btn btn-ghost btn-sm"
+            style={{ fontSize: 11, padding: '2px 8px', height: 'auto', color: '#93c5fd' }}
+          >
+            ← Back to Active
+          </button>
+        </div>
+      )}
+
+      {/* Filter bar */}
+      {showFilters && tab === 'active' && (
+        <div style={{
+          padding: '10px 16px', background: 'var(--surface-2)',
           borderBottom: '1px solid var(--border-subtle)',
           display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
         }}>
-          <select className="form-select" style={{ width: 140, fontSize: 12, padding: '5px 28px 5px 8px' }}
+          <select className="form-select" style={{ width: 130, fontSize: 12, padding: '5px 28px 5px 8px' }}
             value={filters.province ?? ''}
             onChange={(e) => setFilters((f) => ({ ...f, province: (e.target.value as Province) || undefined, district: undefined }))}>
             <option value="">All Provinces</option>
             {PROVINCES.map((p) => <option key={p}>{p}</option>)}
           </select>
-          <select className="form-select" style={{ width: 140, fontSize: 12, padding: '5px 28px 5px 8px' }}
+          <select className="form-select" style={{ width: 130, fontSize: 12, padding: '5px 28px 5px 8px' }}
             value={filters.district ?? ''}
             onChange={(e) => setFilters((f) => ({ ...f, district: e.target.value || undefined }))}>
             <option value="">All Districts</option>
@@ -190,111 +317,262 @@ export default function RecordsPage({ onAddNew }: Props) {
             <option value="">All Types</option>
             {Object.entries(LAND_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
-          <input type="date" className="form-input" style={{ width: 140, fontSize: 12 }}
+          <input type="date" className="form-input" style={{ width: 135, fontSize: 12 }}
             value={filters.dateFrom ?? ''} onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value || undefined }))} />
-          <input type="date" className="form-input" style={{ width: 140, fontSize: 12 }}
+          <input type="date" className="form-input" style={{ width: 135, fontSize: 12 }}
             value={filters.dateTo ?? ''} onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value || undefined }))} />
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={!!filters.showArchived}
-              onChange={(e) => setFilters((f) => ({ ...f, showArchived: e.target.checked }))} />
-            Show Archived
-          </label>
           <button className="btn btn-ghost btn-sm" onClick={() => setFilters({})}>Clear All</button>
           <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)' }}>
-            {filtered.length} record{filtered.length !== 1 ? 's' : ''}
+            {displayList.length} record{displayList.length !== 1 ? 's' : ''}
           </span>
         </div>
       )}
 
-      {/* Table */}
-      <div className="data-table-wrap" style={{ flex: 1, overflow: 'auto' }}>
-        {filtered.length === 0 ? (
+      {/* Main Content Area */}
+      <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        {displayList.length === 0 ? (
           <div className="empty-state" style={{ paddingTop: 80 }}>
-            <FileText size={40} className="empty-state-icon" />
-            <div className="empty-state-title">No Records Found</div>
-            <div className="empty-state-desc">Try adjusting your filters or add a new valuation.</div>
-            {canEdit && <button className="btn btn-primary btn-sm" onClick={onAddNew}><Plus size={13} /> Add Valuation</button>}
+            {tab === 'trash' ? (
+              <>
+                <CheckCircle size={44} style={{ color: '#10b981', marginBottom: 12 }} />
+                <div className="empty-state-title">Recycle Bin is Empty</div>
+                <div className="empty-state-desc">No deleted records in the bin.</div>
+                <button className="btn btn-ghost btn-sm" onClick={() => setTab('active')} style={{ marginTop: 12 }}>
+                  View Active Records
+                </button>
+              </>
+            ) : (
+              <>
+                <FileText size={44} className="empty-state-icon" />
+                <div className="empty-state-title">No Valuations Found</div>
+                <div className="empty-state-desc">Try adjusting your filters, restore a backup snapshot, or add a new record.</div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setShowBackups(true)}>
+                    <RotateCcw size={13} /> Check Backups
+                  </button>
+                  {canEdit && (
+                    <button className="btn btn-primary btn-sm" onClick={onAddNew}>
+                      <Plus size={13} /> Add Valuation
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th onClick={() => handleSort('valuationDate')} style={{ cursor: 'pointer', userSelect: 'none' }}>
-                  Date <SortIcon field="valuationDate" />
-                </th>
-                <th>Reference</th>
-                <th>Title / Location</th>
-                <th>District</th>
-                <th>Type</th>
-                <th onClick={() => handleSort('landExtent')} style={{ cursor: 'pointer', userSelect: 'none' }}>
-                  Extent <SortIcon field="landExtent" />
-                </th>
-                <th onClick={() => handleSort('pricePerPerch')} style={{ cursor: 'pointer', userSelect: 'none' }}>
-                  Price / Perch <SortIcon field="pricePerPerch" />
-                </th>
-                <th>Total Value</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => (
-                <tr key={r.id} style={{ opacity: r.isArchived ? 0.5 : 1 }}>
-                  <td>
-                    {r.isArchived ? (
-                      <span className="badge badge-gray">Archived</span>
-                    ) : r.isDemoData ? (
-                      <span className="badge badge-demo">Demo</span>
-                    ) : (
-                      <span className="badge badge-green">Active</span>
-                    )}
-                  </td>
-                  <td style={{ whiteSpace: 'nowrap', color: 'var(--text-secondary)', fontSize: 12 }}>
-                    {formatDate(r.valuationDate)}
-                  </td>
-                  <td style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--brand-400)' }}>
-                    {r.referenceNumber}
-                  </td>
-                  <td>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{r.title}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{r.town}</div>
-                  </td>
-                  <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{r.district}</td>
-                  <td>
-                    <LandTypeBadge type={r.landType} />
-                  </td>
-                  <td style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                    {formatExtent(r.landExtent)}
-                  </td>
-                  <td>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#34d399' }}>
-                      {formatLKR(r.pricePerPerch, true)}
+          <>
+            {/* 1. Desktop Table */}
+            <div className="desktop-table-only" style={{ flex: 1, overflow: 'auto' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th onClick={() => handleSort('valuationDate')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                      Date <SortIcon field="valuationDate" />
+                    </th>
+                    <th>Reference</th>
+                    <th>Title / Location</th>
+                    <th>District</th>
+                    <th>Type</th>
+                    <th onClick={() => handleSort('landExtent')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                      Extent <SortIcon field="landExtent" />
+                    </th>
+                    <th onClick={() => handleSort('pricePerPerch')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                      Price / Perch <SortIcon field="pricePerPerch" />
+                    </th>
+                    <th>Total Value</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayList.map((r) => (
+                    <tr key={r.id}>
+                      <td>
+                        {tab === 'trash' ? (
+                          <span className="badge badge-gray" style={{ color: '#f87171' }}>In Bin</span>
+                        ) : r.isDemoData ? (
+                          <span className="badge badge-demo">Demo</span>
+                        ) : (
+                          <span className="badge badge-green">Active</span>
+                        )}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap', color: 'var(--text-secondary)', fontSize: 12 }}>
+                        {formatDate(r.valuationDate)}
+                      </td>
+                      <td style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--brand-400)' }}>
+                        {r.referenceNumber}
+                      </td>
+                      <td>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{r.title}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{r.town}</div>
+                      </td>
+                      <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{r.district}</td>
+                      <td>
+                        <LandTypeBadge type={r.landType} />
+                      </td>
+                      <td style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        {formatExtent(r.landExtent)}
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#34d399' }}>
+                          {formatLKR(r.pricePerPerch, true)}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        {formatLKR(r.totalLandValue, true)}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <ActionBtn icon={<Eye size={14} />} title="View Full Details" onClick={() => setViewRecord(r)} />
+                          {tab === 'trash' ? (
+                            <button
+                              className="btn btn-success btn-sm"
+                              style={{ padding: '3px 8px', fontSize: 11, height: 'auto', gap: 4 }}
+                              onClick={() => handleRecover(r)}
+                              title="Recover back to active records"
+                            >
+                              <RotateCcw size={12} /> Recover
+                            </button>
+                          ) : (
+                            <>
+                              {canEdit && (
+                                <ActionBtn icon={<Edit3 size={14} />} title="Edit" onClick={() => setEditRecord(r)} />
+                              )}
+                              {canEdit && (
+                                <ActionBtn
+                                  icon={<Trash2 size={14} />}
+                                  title="Move to Recycle Bin"
+                                  onClick={() => handleMoveToTrash(r)}
+                                  color="#f87171"
+                                />
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 2. Mobile Responsive Card List */}
+            <div className="mobile-cards-only" style={{ padding: '12px 14px', flex: 1, overflowY: 'auto' }}>
+              {displayList.map((r) => (
+                <div
+                  key={r.id}
+                  style={{
+                    background: 'var(--surface-1)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 12,
+                    padding: '14px 16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                  }}
+                >
+                  {/* Top row: badge & reference */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <LandTypeBadge type={r.landType} />
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{r.district}</span>
+                    </div>
+                    <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--brand-400)', fontWeight: 600 }}>
+                      {r.referenceNumber}
                     </span>
-                  </td>
-                  <td style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                    {formatLKR(r.totalLandValue, true)}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <ActionBtn icon={<Eye size={13} />} title="View" onClick={() => setViewRecord(r)} />
-                      {canEdit && !r.isArchived && (
-                        <ActionBtn icon={<Edit3 size={13} />} title="Edit" onClick={() => setEditRecord(r)} />
-                      )}
-                      {canEdit && !r.isArchived && (
-                        <ActionBtn icon={<Archive size={13} />} title="Archive" onClick={() => setConfirmArchive(r)} color="var(--warning)" />
-                      )}
-                      {canEdit && r.isArchived && (
-                        <ActionBtn icon={<RotateCcw size={13} />} title="Restore" onClick={() => handleRestore(r)} color="var(--accent-400)" />
-                      )}
-                      {canAdmin && r.isArchived && (
-                        <ActionBtn icon={<Trash2 size={13} />} title="Delete" onClick={() => setConfirmDelete(r)} color="var(--error)" />
+                  </div>
+
+                  {/* Title & Town */}
+                  <div>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>
+                      {r.title}
+                    </h3>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                      {r.town}{r.address ? ` · ${r.address}` : ''}
+                    </div>
+                  </div>
+
+                  {/* Price Banner */}
+                  <div style={{
+                    background: 'rgba(16,185,129,0.08)',
+                    border: '1px solid rgba(16,185,129,0.2)',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 10, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+                        Price per Perch
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#34d399', fontFamily: "'Outfit', sans-serif" }}>
+                        {formatLKR(r.pricePerPerch)}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 10, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                        Extent · Total
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {formatExtent(r.landExtent)} · {formatLKR(r.totalLandValue, true)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Date & Actions row */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      Date: {formatDate(r.valuationDate)}
+                    </span>
+
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ padding: '6px 10px', fontSize: 12 }}
+                        onClick={() => setViewRecord(r)}
+                      >
+                        <Eye size={13} /> View
+                      </button>
+
+                      {tab === 'trash' ? (
+                        <button
+                          className="btn btn-success btn-sm"
+                          style={{ padding: '6px 12px', fontSize: 12 }}
+                          onClick={() => handleRecover(r)}
+                        >
+                          <RotateCcw size={13} /> Recover
+                        </button>
+                      ) : (
+                        <>
+                          {canEdit && (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ padding: '6px 10px', fontSize: 12 }}
+                              onClick={() => setEditRecord(r)}
+                            >
+                              <Edit3 size={13} /> Edit
+                            </button>
+                          )}
+                          {canEdit && (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ padding: '6px 8px', color: '#f87171' }}
+                              onClick={() => handleMoveToTrash(r)}
+                              title="Move to Recycle Bin"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -317,44 +595,44 @@ export default function RecordsPage({ onAddNew }: Props) {
           onClose={() => { setShowImport(false); refresh(); }}
         />
       )}
-
-      {/* Archive confirm */}
-      {confirmArchive && (
-        <ConfirmDialog
-          title="Archive Record?"
-          message={`Archive "${confirmArchive.title}"? It will be hidden from active views but can be restored.`}
-          confirmLabel="Archive"
-          onConfirm={handleArchive}
-          onCancel={() => setConfirmArchive(null)}
-          variant="warning"
+      {showBackups && (
+        <BackupRecoveryModal
+          onClose={() => setShowBackups(false)}
+          onRestored={refresh}
         />
       )}
 
-      {/* Delete confirm */}
-      {confirmDelete && (
-        <ConfirmDialog
-          title="Permanently Delete?"
-          message={`Delete "${confirmDelete.title}"? This action cannot be undone.`}
-          confirmLabel="Delete Permanently"
-          onConfirm={handleDelete}
-          onCancel={() => setConfirmDelete(null)}
-          variant="danger"
-        />
-      )}
-
+      {/* Wipe Live DB confirm */}
       {showCleanConfirm && (
         <ConfirmDialog
-          title="Clean Live Database"
-          message="Are you sure you want to delete all valuation records from your live Supabase database? This will give you a completely fresh, empty database ready for real data."
-          confirmLabel="Wipe Database"
+          title="Wipe Live Database"
+          message="Are you sure you want to clean your live records? Don't worry: ValueMap will automatically save a backup snapshot (and download a JSON backup file to your device) so you can recover all records at any time!"
+          confirmLabel="Backup & Wipe DB"
           variant="danger"
           onConfirm={async () => {
-            await db.cleanLiveDatabase();
+            const res = await db.cleanLiveDatabase(true);
             refresh();
-            toast.success('Live database has been wiped clean');
+            toast.success(`Database cleaned. Automatic backup saved (${res.count} records)!`);
             setShowCleanConfirm(false);
           }}
           onCancel={() => setShowCleanConfirm(false)}
+        />
+      )}
+
+      {/* Empty Trash confirm */}
+      {showEmptyTrashConfirm && (
+        <ConfirmDialog
+          title="Empty Recycle Bin?"
+          message={`Are you sure you want to permanently empty all ${trashRecords.length} records in the Recycle Bin? Once emptied, they cannot be recovered from the bin.`}
+          confirmLabel="Empty Permanently"
+          variant="danger"
+          onConfirm={() => {
+            db.emptyTrash();
+            refresh();
+            toast.warning('Recycle Bin emptied');
+            setShowEmptyTrashConfirm(false);
+          }}
+          onCancel={() => setShowEmptyTrashConfirm(false)}
         />
       )}
     </div>
@@ -388,7 +666,8 @@ function ActionBtn({ icon, title, onClick, color = 'var(--text-muted)' }: {
       title={title}
       style={{
         background: 'none', border: 'none', color,
-        padding: '4px', borderRadius: 4, cursor: 'pointer',
+        padding: '6px', borderRadius: 4, cursor: 'pointer',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         transition: 'opacity var(--t-fast)',
       }}
       onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
@@ -409,16 +688,16 @@ function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel, vari
     <div className="overlay">
       <div style={{
         background: 'var(--surface-1)', border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-xl)', padding: 28, width: 380,
+        borderRadius: 'var(--radius-xl)', padding: 24, width: '100%', maxWidth: 420,
         boxShadow: 'var(--shadow-xl)',
       }}>
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>{title}</div>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>{message}</div>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10, color: 'var(--text-primary)' }}>{title}</div>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>{message}</div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
           <button
             className="btn"
-            style={{ background: color, color: '#fff', border: `1px solid ${color}` }}
+            style={{ background: color, color: '#fff', border: `1px solid ${color}`, fontWeight: 600 }}
             onClick={onConfirm}
           >
             {confirmLabel}

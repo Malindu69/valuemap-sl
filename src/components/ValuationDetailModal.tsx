@@ -16,9 +16,9 @@ interface Props {
 
 function Row({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', width: 160, flexShrink: 0 }}>{label}</div>
-      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontFamily: mono ? 'monospace' : 'inherit', wordBreak: 'break-word' }}>
+    <div className="detail-row">
+      <div className="detail-label">{label}</div>
+      <div className="detail-value" style={mono ? { fontFamily: 'monospace' } : {}}>
         {value || '—'}
       </div>
     </div>
@@ -28,32 +28,32 @@ function Row({ label, value, mono = false }: { label: string; value: string; mon
 export default function ValuationDetailModal({ record: r, onClose, onEdit }: Props) {
   return (
     <div className="overlay">
-      <div className="modal" style={{ maxWidth: 680 }}>
+      <div className="modal" style={{ maxWidth: 680, width: '100%' }}>
         <div className="modal-header">
           <div>
-            <h2 className="modal-title">{r.title}</h2>
+            <h2 className="modal-title" style={{ fontSize: 'clamp(15px, 4vw, 18px)' }}>{r.title}</h2>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
               {r.referenceNumber}{r.reportReference ? ` · ${r.reportReference}` : ''}
               {r.isDemoData && <span className="badge badge-demo" style={{ marginLeft: 8 }}>DEMO</span>}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {onEdit && (
               <button className="btn btn-ghost btn-sm" onClick={onEdit}>
                 <Edit3 size={13} /> Edit
               </button>
             )}
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-              <X size={20} />
+            <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 8 }}>
+              <X size={22} />
             </button>
           </div>
         </div>
 
-        <div className="modal-body">
+        <div className="modal-body" style={{ padding: '16px 20px' }}>
           {/* Value hero */}
           <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
-            gap: 12, marginBottom: 24,
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: 12, marginBottom: 20,
           }}>
             <PriceBox label="Price per Perch" value={formatLKR(r.pricePerPerch)} color="#34d399" />
             <PriceBox label="Total Value" value={formatLKR(r.totalLandValue, true)} color="#60a5fa" />

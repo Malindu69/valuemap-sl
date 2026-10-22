@@ -185,6 +185,53 @@ if (typeof window !== 'undefined') {
   initSupabaseLiveSync();
 }
 
+// ─── Database Backups & Trash Storage ──────────────────────────────────────
+
+export interface DatabaseBackup {
+  id: string;
+  timestamp: string;
+  note: string;
+  count: number;
+  records: ValuationRecord[];
+}
+
+const BACKUPS_STORAGE_KEY = 'valuemap_sl_backups_v2';
+const TRASH_STORAGE_KEY = 'valuemap_sl_trash_v2';
+
+function loadBackupsFromStorage(): DatabaseBackup[] {
+  try {
+    const raw = localStorage.getItem(BACKUPS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveBackupsToStorage(backups: DatabaseBackup[]): void {
+  try {
+    localStorage.setItem(BACKUPS_STORAGE_KEY, JSON.stringify(backups.slice(0, 15)));
+  } catch (err) {
+    console.warn('Could not save backups:', err);
+  }
+}
+
+function loadTrashFromStorage(): ValuationRecord[] {
+  try {
+    const raw = localStorage.getItem(TRASH_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTrashToStorage(trash: ValuationRecord[]): void {
+  try {
+    localStorage.setItem(TRASH_STORAGE_KEY, JSON.stringify(trash.slice(0, 100)));
+  } catch (err) {
+    console.warn('Could not save trash:', err);
+  }
+}
+
 // ─── CRUD Operations ───────────────────────────────────────────────────────
 
 export const db = {
@@ -218,8 +265,80 @@ export const db = {
     }
   },
 
-  /** Clear all records in the live database */
-  async cleanLiveDatabase(): Promise<boolean> {
+  /** Create an instant backup snapshot of current live records */
+  createBackup(note = 'Manual backup'): DatabaseBackup {
+    const current = [..._liveRecords];
+    const backup: DatabaseBackup = {
+      id: `backup_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      timestamp: new Date().toISOString(),
+      note,
+      count: current.length,
+      records: current,
+    };
+    const existing = loadBackupsFromStorage();
+    saveBackupsToStorage([backup, ...existing]);
+    return backup;
+  },
+
+  /** Get all available database backup snapshots */
+  getBackups(): DatabaseBackup[] {
+    return loadBackupsFromStorage();
+  },
+
+  /** Restore database from a saved snapshot ID */
+  async restoreBackup(backupId: string): Promise<{ success: boolean; count: number; error?: string }> {
+    const backups = loadBackupsFromStorage();
+    const backup = backups.find((b) => b.id === backupId);
+    if (!backup) {
+      return { success: false, count: 0, error: 'Backup not found' };
+    }
+    return db.restoreRecords(backup.records);
+  },
+
+  /** Restore an arbitrary list of records (from backup or imported JSON) */
+  async restoreRecords(records: ValuationRecord[]): Promise<{ success: boolean; count: number; error?: string }> {
+    try {
+      _liveRecords = [...records];
+      saveToStorage(_liveRecords, 'live');
+
+      if (isSupabaseConfigured && records.length > 0) {
+        const rows = records.map(toRow);
+        const { error } = await supabase.from('valuation_records').upsert(rows);
+        if (error) console.warn('Supabase restore warning:', error.message);
+      }
+
+      notifyListeners();
+      return { success: true, count: records.length };
+    } catch (err) {
+      console.error('Failed to restore records:', err);
+      return { success: false, count: 0, error: String(err) };
+    }
+  },
+
+  /** Clear all records in the live database — automatically creates a backup snapshot first! */
+  async cleanLiveDatabase(downloadJson = true): Promise<{ success: boolean; backupId: string; count: number }> {
+    const count = _liveRecords.length;
+    // 1. Create automatic backup snapshot
+    const backup = db.createBackup(`Auto-backup before wipe (${count} records)`);
+
+    // 2. Download JSON file backup to user machine if requested
+    if (downloadJson && count > 0 && typeof window !== 'undefined') {
+      try {
+        const blob = new Blob([JSON.stringify(_liveRecords, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `valuemap_backup_${new Date().toISOString().slice(0, 10)}_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.warn('Could not auto-download backup file:', e);
+      }
+    }
+
+    // 3. Clear cloud Supabase
     if (isSupabaseConfigured) {
       try {
         await supabase
@@ -230,9 +349,11 @@ export const db = {
         console.warn('Supabase clean warning:', err);
       }
     }
+
+    // 4. Clear local memory
     _liveRecords = [];
     saveToStorage([], 'live');
-    return true;
+    return { success: true, backupId: backup.id, count };
   },
 
   /** Reset demo sandbox to default 15 sample records */
@@ -245,6 +366,17 @@ export const db = {
   getAll(includeArchived = false): ValuationRecord[] {
     const records = getActiveList();
     return includeArchived ? records : records.filter((r) => !r.isArchived);
+  },
+
+  /** Get all deleted or archived records (Recycle Bin / Trash) */
+  getTrash(): ValuationRecord[] {
+    const fromActiveArchived = getActiveList().filter((r) => r.isArchived);
+    const fromTrashStore = loadTrashFromStorage();
+    // Combine and deduplicate by id
+    const map = new Map<string, ValuationRecord>();
+    fromTrashStore.forEach((r) => map.set(r.id, r));
+    fromActiveArchived.forEach((r) => map.set(r.id, r));
+    return Array.from(map.values());
   },
 
   getById(id: string): ValuationRecord | undefined {
@@ -307,23 +439,67 @@ export const db = {
   },
 
   restore(id: string): boolean {
-    const updated = db.update(id, { isArchived: false });
-    return updated !== null;
+    // 1. Check if record is in active list marked as isArchived
+    const activeMatch = getActiveList().find((r) => r.id === id);
+    if (activeMatch) {
+      db.update(id, { isArchived: false });
+      return true;
+    }
+    // 2. Check if record is in trash storage
+    const trash = loadTrashFromStorage();
+    const item = trash.find((r) => r.id === id);
+    if (item) {
+      const restored = { ...item, isArchived: false, updatedAt: new Date().toISOString() };
+      const updatedList = [restored, ...getActiveList()];
+      setActiveList(updatedList);
+      saveTrashToStorage(trash.filter((r) => r.id !== id));
+      if (_currentEnv === 'live' && isSupabaseConfigured) {
+        supabase.from('valuation_records').upsert([toRow(restored)]).then(({ error }) => {
+          if (error) console.warn('Supabase restore warning:', error.message);
+        });
+      }
+      return true;
+    }
+    return false;
   },
 
+  /** Safe soft-delete: moves record to Recycle Bin / Trash with instant recovery ability */
   delete(id: string): boolean {
     const list = getActiveList();
-    const before = list.length;
+    const found = list.find((r) => r.id === id);
+    if (!found) return false;
+
+    // Save copy into trash storage
+    const currentTrash = loadTrashFromStorage();
+    saveTrashToStorage([{ ...found, isArchived: true }, ...currentTrash.filter((r) => r.id !== id)]);
+
+    // Soft-mark in Supabase or delete from active
     const newList = list.filter((r) => r.id !== id);
     setActiveList(newList);
 
     if (_currentEnv === 'live' && isSupabaseConfigured) {
-      supabase.from('valuation_records').delete().eq('id', id).then(({ error }) => {
-        if (error) console.warn('Supabase delete warning:', error.message);
+      // Mark as archived in Supabase so data is NEVER lost from cloud either
+      supabase.from('valuation_records').update({ is_archived: true }).eq('id', id).then(({ error }) => {
+        if (error) console.warn('Supabase delete/archive warning:', error.message);
       });
     }
 
-    return newList.length < before;
+    return true;
+  },
+
+  /** Permanently empty trash / recycle bin */
+  emptyTrash(): void {
+    const trash = loadTrashFromStorage();
+    saveTrashToStorage([]);
+    if (_currentEnv === 'live' && isSupabaseConfigured && trash.length > 0) {
+      const ids = trash.map((r) => r.id);
+      supabase.from('valuation_records').delete().in('id', ids).then(({ error }) => {
+        if (error) console.warn('Supabase empty trash warning:', error.message);
+      });
+    }
+    // Also remove any isArchived records in active list
+    const remaining = getActiveList().filter((r) => !r.isArchived);
+    setActiveList(remaining);
   },
 
   resetToDemo(): void {
