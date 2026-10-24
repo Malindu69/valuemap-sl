@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Map, PlusCircle, List, BarChart3, LogOut, MapPin, Menu, X, Eye, Users,
+  LayoutDashboard, Map, PlusCircle, List, BarChart3, LogOut, MapPin, Menu, X, Eye, Users, Compass,
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
@@ -10,11 +10,13 @@ import DashboardPage from './pages/DashboardPage';
 import MapPage from './pages/MapPage';
 import RecordsPage from './pages/RecordsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import ExplorePage from './pages/ExplorePage';
 import AddEditValuationModal from './components/AddEditValuationModal';
 import UserManagementModal from './components/UserManagementModal';
 import './index.css';
 
-import type { GPSCoordinates } from './types';
+import type { GPSCoordinates, ValuationRecord } from './types';
+import type { MarketBenchmark } from './data/marketBenchmarks';
 import { db } from './services/db';
 
 // Ensure live mode on app boot
@@ -22,7 +24,11 @@ db.setEnvironment('live');
 
 function AppShell() {
   const { user, logout, canEdit, canAdmin } = useAuth();
-  const [addModal, setAddModal] = React.useState<{ open: boolean; initialCoords?: GPSCoordinates }>({ open: false });
+  const [addModal, setAddModal] = React.useState<{
+    open: boolean;
+    initialCoords?: GPSCoordinates;
+    initialData?: Partial<ValuationRecord>;
+  }>({ open: false });
   const [usersModal, setUsersModal] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
@@ -34,6 +40,24 @@ function AppShell() {
   function openAdd() {
     if (!canEdit) return; // guests can't add
     setAddModal({ open: true });
+  }
+
+  function handleUseBenchmarkAsValuation(b: MarketBenchmark) {
+    if (!canEdit) return;
+    setAddModal({
+      open: true,
+      initialData: {
+        title: `Land in ${b.name}`,
+        address: `${b.name}, ${b.district}`,
+        province: b.province,
+        district: b.district,
+        town: b.name.split(' (')[0],
+        coordinates: b.coordinates,
+        landExtent: { perches: 10 },
+        totalLandValue: b.avgPricePerPerch * 10,
+        notes: `Market comp from 2024/2025 benchmark: ${b.name}. Source: ${b.source}. Key drivers: ${b.keyDrivers.join(', ')}.`,
+      },
+    });
   }
 
   return (
@@ -103,6 +127,9 @@ function AppShell() {
           </NavLink>
           <NavLink to="/records" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
             <List size={16} /> Valuations
+          </NavLink>
+          <NavLink to="/explore" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
+            <Compass size={16} /> Market Explore
           </NavLink>
           <NavLink to="/analytics" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
             <BarChart3 size={16} /> Analytics
@@ -182,6 +209,7 @@ function AppShell() {
             <Route path="/dashboard" element={<DashboardPage onAddNew={openAdd} />} />
             <Route path="/map" element={<MapPage onAddNew={(coords) => { if (canEdit) setAddModal({ open: true, initialCoords: coords }); }} />} />
             <Route path="/records" element={<RecordsPage onAddNew={openAdd} />} />
+            <Route path="/explore" element={<ExplorePage onUseAsValuation={canEdit ? handleUseBenchmarkAsValuation : undefined} />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
@@ -229,6 +257,7 @@ function AppShell() {
       {addModal.open && canEdit && (
         <AddEditValuationModal
           initialCoordinates={addModal.initialCoords}
+          initialData={addModal.initialData}
           onClose={() => setAddModal({ open: false })}
         />
       )}

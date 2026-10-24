@@ -72,6 +72,7 @@ function LocationPicker({ value, onChange }: {
 interface Props {
   record?: ValuationRecord;
   initialCoordinates?: GPSCoordinates;
+  initialData?: Partial<ValuationRecord>;
   onClose: () => void;
 }
 
@@ -152,13 +153,28 @@ function recordToForm(r: ValuationRecord): FormState {
   };
 }
 
-export default function AddEditValuationModal({ record, initialCoordinates, onClose }: Props) {
+export default function AddEditValuationModal({ record, initialCoordinates, initialData, onClose }: Props) {
   const { user } = useAuth();
   const toast = useToast();
   const isEdit = !!record;
 
   const [form, setForm] = useState<FormState>(() => {
     if (record) return recordToForm(record);
+    if (initialData) {
+      return {
+        ...EMPTY_FORM,
+        title: initialData.title || '',
+        address: initialData.address || '',
+        province: initialData.province || '',
+        district: initialData.district || '',
+        town: initialData.town || '',
+        lat: initialData.coordinates ? initialData.coordinates.lat.toFixed(6) : '',
+        lng: initialData.coordinates ? initialData.coordinates.lng.toFixed(6) : '',
+        perches: initialData.landExtent ? initialData.landExtent.perches.toString() : '10',
+        totalLandValue: initialData.totalLandValue ? initialData.totalLandValue.toString() : '',
+        notes: initialData.notes || '',
+      };
+    }
     if (initialCoordinates) {
       return {
         ...EMPTY_FORM,

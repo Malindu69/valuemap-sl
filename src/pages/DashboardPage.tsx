@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, MapPin, Building2, Plus, Map, ArrowRight,
+  LayoutDashboard, MapPin, Building2, Plus, Map, ArrowRight, Compass,
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
@@ -126,6 +126,50 @@ export default function DashboardPage({ onAddNew }: Props) {
               flexShrink: 0,
             }}>
               <ArrowRight size={18} />
+            </div>
+          </div>
+
+          {/* Quick Market Explore Action Card */}
+          <div
+            onClick={() => navigate('/explore')}
+            style={{
+              background: 'linear-gradient(135deg, rgba(56,189,248,0.12), rgba(168,85,247,0.1))',
+              border: '1px solid rgba(56,189,248,0.25)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '16px 20px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(56,189,248,0.5)';
+              (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(56,189,248,0.25)';
+              (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Market Intelligence
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginTop: 2 }}>
+                Market Explorer
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                CBSL 256.4 (+11.4%) & 40+ town benchmarks
+              </div>
+            </div>
+            <div style={{
+              width: 38, height: 38, borderRadius: '50%',
+              background: '#0284c7', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <Compass size={18} />
             </div>
           </div>
         </div>
