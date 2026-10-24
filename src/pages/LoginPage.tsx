@@ -136,7 +136,7 @@ export default function LoginPage() {
                   style={{ paddingLeft: 32 }}
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="e.g. Admin or Dilhani"
+                  placeholder="Enter username or email"
                   required
                   autoComplete="username"
                 />

@@ -1,73 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { type User, type AuthState } from '../types';
-import { generateId } from '../utils';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 
-const USERS_KEY = 'valuemap_sl_users_v3';
-const SESSION_KEY = 'valuemap_sl_session_v3';
+const SESSION_KEY = 'valuemap_sl_session_v4';
+const CACHED_USERS_KEY = 'valuemap_sl_cached_users_v4';
 
 export interface StoredUser extends User {
   username: string;
-  passwordHash: string;
   createdAt?: string;
-}
-
-function hashPassword(pw: string): string {
-  try {
-    return btoa(pw);
-  } catch {
-    return pw;
-  }
-}
-
-const DEFAULT_USERS: StoredUser[] = [
-  {
-    id: 'user_admin_01',
-    username: 'Admin',
-    email: 'admin@valuemap.lk',
-    name: 'Admin',
-    role: 'admin',
-    passwordHash: hashPassword('Admin@123'),
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'user_dilhani_02',
-    username: 'Dilhani',
-    email: 'dilhani@valuemap.lk',
-    name: 'Dilhani',
-    role: 'valuer',
-    passwordHash: hashPassword('12345'),
-    createdAt: new Date().toISOString(),
-  },
-];
-
-function getStoredUsers(): StoredUser[] {
-  try {
-    const raw = localStorage.getItem(USERS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // Ensure Admin and Dilhani always exist
-        const hasAdmin = parsed.some((u: StoredUser) => u.username?.toLowerCase() === 'admin');
-        const hasDilhani = parsed.some((u: StoredUser) => u.username?.toLowerCase() === 'dilhani');
-        const merged = [...parsed];
-        if (!hasAdmin) merged.unshift(DEFAULT_USERS[0]);
-        if (!hasDilhani) merged.push(DEFAULT_USERS[1]);
-        return merged;
-      }
-    }
-  } catch { /* empty */ }
-
-  localStorage.setItem(USERS_KEY, JSON.stringify(DEFAULT_USERS));
-  return DEFAULT_USERS;
-}
-
-function saveStoredUsers(users: StoredUser[]): void {
-  try {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  } catch (err) {
-    console.warn('Could not save users to local storage:', err);
-  }
 }
 
 function getSession(): User | null {
@@ -76,6 +16,23 @@ function getSession(): User | null {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
+  }
+}
+
+function getCachedUsers(): StoredUser[] {
+  try {
+    const raw = localStorage.getItem(CACHED_USERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function setCachedUsers(users: StoredUser[]): void {
+  try {
+    localStorage.setItem(CACHED_USERS_KEY, JSON.stringify(users));
+  } catch (err) {
+    console.warn('Could not cache users:', err);
   }
 }
 
@@ -88,6 +45,7 @@ interface AuthContextValue extends AuthState {
   logout: () => void;
   createUser: (data: { username: string; name: string; email?: string; role: 'admin' | 'valuer'; password: string }) => Promise<{ success: boolean; error?: string }>;
   deleteUser: (id: string) => Promise<{ success: boolean; error?: string }>;
+  refreshUsers: () => Promise<void>;
   canEdit: boolean;
   canAdmin: boolean;
 }
@@ -99,63 +57,91 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: getSession(),
     isLoading: false,
   });
-  const [users, setUsers] = useState<StoredUser[]>(() => getStoredUsers());
+  const [users, setUsers] = useState<StoredUser[]>(() => getCachedUsers());
 
-  // Sync users with Supabase `app_users` table if available
-  useEffect(() => {
-    async function syncDbUsers() {
-      if (!isSupabaseConfigured) return;
-      try {
-        const { data, error } = await supabase.from('app_users').select('*');
-        if (!error && data && data.length > 0) {
-          const dbUsers: StoredUser[] = data.map((row: any) => ({
-            id: String(row.id),
-            username: row.username,
-            name: row.name || row.username,
-            email: row.email || `${row.username.toLowerCase()}@valuemap.lk`,
-            role: row.role === 'admin' ? 'admin' : 'valuer',
-            passwordHash: hashPassword(row.password || ''),
-            createdAt: row.created_at,
-          }));
+  // Fetch users directly from Supabase DB
+  const refreshUsers = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const { data, error } = await supabase
+        .from('app_users')
+        .select('id, username, name, email, role, created_at')
+        .order('created_at', { ascending: true });
 
-          // Merge db users with defaults
-          const mergedMap = new Map<string, StoredUser>();
-          getStoredUsers().forEach(u => mergedMap.set(u.username.toLowerCase(), u));
-          dbUsers.forEach(u => mergedMap.set(u.username.toLowerCase(), u));
-          const mergedList = Array.from(mergedMap.values());
-          saveStoredUsers(mergedList);
-          setUsers(mergedList);
-        }
-      } catch (err) {
-        // Table might not exist yet, local fallback active
+      if (!error && data) {
+        const mapped: StoredUser[] = data.map((row: any) => ({
+          id: String(row.id),
+          username: row.username,
+          name: row.name || row.username,
+          email: row.email || `${row.username.toLowerCase()}@valuemap.lk`,
+          role: row.role === 'admin' ? 'admin' : 'valuer',
+          createdAt: row.created_at,
+        }));
+        setUsers(mapped);
+        setCachedUsers(mapped);
       }
+    } catch (err) {
+      console.warn('Could not fetch app_users from Supabase:', err);
     }
-    syncDbUsers();
   }, []);
+
+  useEffect(() => {
+    refreshUsers();
+  }, [refreshUsers]);
 
   const login = useCallback(async (identifier: string, password: string): Promise<{ error?: string }> => {
     setState((s) => ({ ...s, isLoading: true }));
-    await new Promise((r) => setTimeout(r, 350));
+    const cleanId = identifier.trim();
 
-    const currentUsers = getStoredUsers();
-    const idClean = identifier.trim().toLowerCase();
-    const pwHash = hashPassword(password);
-
-    const found = currentUsers.find(
-      (u) =>
-        (u.username.toLowerCase() === idClean || u.email.toLowerCase() === idClean) &&
-        u.passwordHash === pwHash,
-    );
-
-    if (!found) {
+    if (!cleanId || !password) {
       setState((s) => ({ ...s, isLoading: false }));
-      return { error: 'Invalid username/email or password' };
+      return { error: 'Please enter both username and password' };
     }
 
-    const user: User = { id: found.id, email: found.email, name: found.name, role: found.role };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-    setState({ user, isLoading: false });
-    return {};
+    try {
+      if (isSupabaseConfigured) {
+        // Query Supabase app_users table directly
+        const { data, error } = await supabase
+          .from('app_users')
+          .select('*')
+          .or(`username.ilike.${cleanId},email.ilike.${cleanId}`)
+          .limit(1);
+
+        if (error) {
+          setState((s) => ({ ...s, isLoading: false }));
+          return { error: `Database error: ${error.message}` };
+        }
+
+        if (!data || data.length === 0) {
+          setState((s) => ({ ...s, isLoading: false }));
+          return { error: 'Invalid username/email or password' };
+        }
+
+        const userRow = data[0];
+        // Validate password directly against DB
+        if (userRow.password !== password) {
+          setState((s) => ({ ...s, isLoading: false }));
+          return { error: 'Invalid username/email or password' };
+        }
+
+        const user: User = {
+          id: String(userRow.id),
+          name: userRow.name || userRow.username,
+          email: userRow.email || `${userRow.username.toLowerCase()}@valuemap.lk`,
+          role: userRow.role === 'admin' ? 'admin' : 'valuer',
+        };
+
+        localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+        setState({ user, isLoading: false });
+        return {};
+      }
+
+      setState((s) => ({ ...s, isLoading: false }));
+      return { error: 'Supabase database is not configured' };
+    } catch (err) {
+      setState((s) => ({ ...s, isLoading: false }));
+      return { error: 'An unexpected error occurred during login' };
+    }
   }, []);
 
   const logout = useCallback(() => {
@@ -185,67 +171,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!cleanUsername) return { success: false, error: 'Username is required' };
     if (!data.password) return { success: false, error: 'Password is required' };
 
-    const current = getStoredUsers();
-    if (current.some(u => u.username.toLowerCase() === cleanUsername.toLowerCase())) {
-      return { success: false, error: 'Username already exists' };
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'Database is not connected' };
     }
 
-    const newUser: StoredUser = {
-      id: generateId(),
-      username: cleanUsername,
-      name: data.name.trim() || cleanUsername,
-      email: data.email?.trim() || `${cleanUsername.toLowerCase()}@valuemap.lk`,
-      role: data.role,
-      passwordHash: hashPassword(data.password),
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const { error } = await supabase.from('app_users').insert([{
+        username: cleanUsername,
+        name: data.name.trim() || cleanUsername,
+        email: data.email?.trim() || `${cleanUsername.toLowerCase()}@valuemap.lk`,
+        role: data.role,
+        password: data.password,
+      }]);
 
-    const updated = [...current, newUser];
-    saveStoredUsers(updated);
-    setUsers(updated);
-
-    // Save to Supabase if table exists
-    if (isSupabaseConfigured) {
-      try {
-        await supabase.from('app_users').insert([{
-          id: newUser.id,
-          username: newUser.username,
-          name: newUser.name,
-          email: newUser.email,
-          role: newUser.role,
-          password: data.password,
-        }]);
-      } catch (err) {
-        console.warn('Could not sync new user to Supabase:', err);
+      if (error) {
+        if (error.code === '23505') {
+          return { success: false, error: `Username "${cleanUsername}" is already taken` };
+        }
+        return { success: false, error: error.message };
       }
-    }
 
-    return { success: true };
-  }, []);
+      await refreshUsers();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  }, [refreshUsers]);
 
   const deleteUser = useCallback(async (id: string): Promise<{ success: boolean; error?: string }> => {
-    const current = getStoredUsers();
-    const toDelete = current.find(u => u.id === id);
-    if (!toDelete) return { success: false, error: 'User not found' };
-
-    if (toDelete.username.toLowerCase() === 'admin') {
-      return { success: false, error: 'Default Admin account cannot be deleted' };
+    if (!isSupabaseConfigured) {
+      return { success: false, error: 'Database is not connected' };
     }
 
-    const updated = current.filter(u => u.id !== id);
-    saveStoredUsers(updated);
-    setUsers(updated);
-
-    if (isSupabaseConfigured) {
-      try {
-        await supabase.from('app_users').delete().eq('id', id);
-      } catch (err) {
-        console.warn('Could not delete user from Supabase:', err);
+    try {
+      const { error } = await supabase.from('app_users').delete().eq('id', id);
+      if (error) {
+        return { success: false, error: error.message };
       }
-    }
 
-    return { success: true };
-  }, []);
+      await refreshUsers();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  }, [refreshUsers]);
 
   const canEdit = state.user?.role === 'admin' || state.user?.role === 'valuer';
   const canAdmin = state.user?.role === 'admin';
@@ -259,6 +228,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout,
       createUser,
       deleteUser,
+      refreshUsers,
       canEdit,
       canAdmin,
     }}>
