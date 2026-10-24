@@ -26,6 +26,8 @@ L.Icon.Default.mergeOptions({
 
 function getPinColor(category: MarketBenchmark['category']): string {
   switch (category) {
+    case 'developer-project':
+      return '#06b6d4'; // Cyan (Home Lands live projects)
     case 'super-prime':
       return '#ef4444'; // Red
     case 'prime-suburb':
@@ -39,6 +41,15 @@ function getPinColor(category: MarketBenchmark['category']): string {
     default:
       return '#60a5fa';
   }
+}
+
+function openExternalLink(url: string, e?: React.MouseEvent) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  if (!url) return;
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 function createBenchmarkPinIcon(color: string, size = 28): L.DivIcon {
@@ -173,12 +184,14 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
               Sri Lanka Land Price Explorer
             </h1>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span>Explore <strong>{MARKET_BENCHMARKS.length} official market benchmarks</strong> across all 9 provinces • CBSL LVI Index: <strong>256.4 (+11.4% YoY)</strong></span>
+              <span>Explore <strong>{MARKET_BENCHMARKS.length} verified market benchmarks & Home Lands projects</strong> across Sri Lanka • CBSL LVI Index: <strong>256.4 (+11.4% YoY)</strong></span>
               <a
                 href={CBSL_LVI_DATA.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 600, fontSize: 11 }}
+                onClick={(e) => openExternalLink(CBSL_LVI_DATA.sourceUrl, e)}
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 600, fontSize: 11, cursor: 'pointer' }}
               >
                 <ExternalLink size={11} /> Central Bank Official Report
               </a>
@@ -225,7 +238,7 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
               type="text"
               className="form-input"
               style={{ paddingLeft: 32, width: '100%', fontSize: 12, height: 34 }}
-              placeholder="Search 55+ towns, cities (e.g. Rajagiriya, Negombo, Kandy, Galle)..."
+              placeholder="Search 100+ locations & Home Lands projects (e.g. Athurugiriya, Piliyandala, Galle, Malabe)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -251,8 +264,9 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
-            <option value="all">All Market Tiers</option>
-            <option value="super-prime">🔴 Super Prime (Colombo & Galle Fort)</option>
+            <option value="all">All Market Categories</option>
+            <option value="developer-project">🏡 Home Lands Projects (Verified Live)</option>
+            <option value="super-prime">🔴 Super Prime (&gt; 10M/P)</option>
             <option value="prime-suburb">🔵 Prime Residential Suburbs</option>
             <option value="growth-corridor">🟢 High-Growth Expressway Corridors</option>
             <option value="tourism-coastal">🟣 Tourism & Coastal Hotspots</option>
@@ -358,6 +372,10 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#06b6d4' }} />
+                  <span style={{ color: 'var(--text-primary)' }}>Home Lands Projects (Live)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444' }} />
                   <span style={{ color: 'var(--text-primary)' }}>Super Prime (&gt; 10M/P)</span>
                 </div>
@@ -394,9 +412,11 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                     <span style={{
                       fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
                       padding: '2px 8px', borderRadius: 10,
-                      background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8',
+                      background: selectedBenchmark.category === 'developer-project' ? 'rgba(6,182,212,0.2)' : 'rgba(56, 189, 248, 0.15)',
+                      color: selectedBenchmark.category === 'developer-project' ? '#22d3ee' : '#38bdf8',
+                      border: selectedBenchmark.category === 'developer-project' ? '1px solid rgba(6,182,212,0.4)' : 'none',
                     }}>
-                      {selectedBenchmark.category.replace('-', ' ')}
+                      {selectedBenchmark.category === 'developer-project' ? '🏡 Home Lands Project' : selectedBenchmark.category.replace('-', ' ')}
                     </span>
                     <h3 style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginTop: 6, lineHeight: 1.25 }}>
                       {selectedBenchmark.name}
@@ -467,9 +487,11 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                     href={selectedBenchmark.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ fontSize: 11, color: '#38bdf8', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}
+                    onClick={(e) => openExternalLink(selectedBenchmark.sourceUrl, e)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{ fontSize: 11, color: '#38bdf8', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none', cursor: 'pointer' }}
                   >
-                    <ExternalLink size={12} /> View Reference
+                    <ExternalLink size={12} /> {selectedBenchmark.category === 'developer-project' ? 'Open on Home Lands' : 'View Source'}
                   </a>
                 </div>
 
@@ -542,10 +564,12 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                             href={c.sourceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => openExternalLink(c.sourceUrl, e)}
+                            onMouseDown={(e) => e.stopPropagation()}
                             className="btn btn-ghost btn-sm"
-                            style={{ fontSize: 11, color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: 3, textDecoration: 'none' }}
+                            style={{ fontSize: 11, color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: 3, textDecoration: 'none', cursor: 'pointer' }}
                           >
-                            <ExternalLink size={11} /> Source
+                            <ExternalLink size={11} /> {c.category === 'developer-project' ? 'Home Lands' : 'Source'}
                           </a>
                         </div>
                       </div>
@@ -639,9 +663,11 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                               <span style={{
                                 fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
                                 padding: '2px 7px', borderRadius: 10,
-                                background: 'rgba(56,189,248,0.12)', color: '#38bdf8',
+                                background: b.category === 'developer-project' ? 'rgba(6,182,212,0.2)' : 'rgba(56,189,248,0.12)',
+                                color: b.category === 'developer-project' ? '#22d3ee' : '#38bdf8',
+                                border: b.category === 'developer-project' ? '1px solid rgba(6,182,212,0.4)' : 'none',
                               }}>
-                                {b.category.replace('-', ' ')}
+                                {b.category === 'developer-project' ? '🏡 Home Lands' : b.category.replace('-', ' ')}
                               </span>
                               <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                                 {b.district} • {b.province}
@@ -706,9 +732,11 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                             href={b.sourceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            style={{ color: '#38bdf8', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3, textDecoration: 'none' }}
+                            onClick={(e) => openExternalLink(b.sourceUrl, e)}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            style={{ color: '#38bdf8', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3, textDecoration: 'none', cursor: 'pointer' }}
                           >
-                            <ExternalLink size={11} /> Source
+                            <ExternalLink size={11} /> {b.category === 'developer-project' ? 'Home Lands' : 'Source'}
                           </a>
                         </div>
 
@@ -781,8 +809,13 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{b.district}, {b.province}</span>
                           </td>
                           <td>
-                            <span style={{ fontSize: 11, textTransform: 'capitalize', color: 'var(--text-secondary)' }}>
-                              {b.category.replace('-', ' ')}
+                            <span style={{
+                              fontSize: 11,
+                              textTransform: 'capitalize',
+                              color: b.category === 'developer-project' ? '#22d3ee' : 'var(--text-secondary)',
+                              fontWeight: b.category === 'developer-project' ? 700 : 400,
+                            }}>
+                              {b.category === 'developer-project' ? '🏡 Home Lands' : b.category.replace('-', ' ')}
                             </span>
                           </td>
                           <td style={{ textAlign: 'right', fontWeight: 800, color: '#38bdf8' }}>
@@ -800,11 +833,13 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                                 href={b.sourceUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                onClick={(e) => openExternalLink(b.sourceUrl, e)}
+                                onMouseDown={(e) => e.stopPropagation()}
                                 className="btn btn-ghost btn-sm"
-                                style={{ padding: '3px 8px', fontSize: 11, color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: 3, textDecoration: 'none' }}
+                                style={{ padding: '3px 8px', fontSize: 11, color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: 3, textDecoration: 'none', cursor: 'pointer' }}
                                 title="Open reference source data"
                               >
-                                <ExternalLink size={11} /> Source
+                                <ExternalLink size={11} /> {b.category === 'developer-project' ? 'Home Lands' : 'Source'}
                               </a>
                               <button
                                 className="btn btn-ghost btn-sm"
@@ -849,17 +884,40 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div>
-                    • <a href="https://www.cbsl.gov.lk/en/statistics/economic-indicators/land-valuation-indicator" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
+                    • <a
+                      href="https://www.homelands.lk/lands-for-sale"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => openExternalLink('https://www.homelands.lk/lands-for-sale', e)}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      style={{ color: '#22d3ee', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Home Lands (Pvt) Ltd Official Project Directory <ExternalLink size={11} />
+                    </a> — Sri Lanka's #1 real estate developer with certified residential, commercial & gated community plots across all major growth corridors.
+                  </div>
+                  <div>
+                    • <a
+                      href="https://www.cbsl.gov.lk/en/statistics/economic-indicators/land-valuation-indicator"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => openExternalLink('https://www.cbsl.gov.lk/en/statistics/economic-indicators/land-valuation-indicator', e)}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 600, cursor: 'pointer' }}
+                    >
                       Central Bank of Sri Lanka (CBSL) Land Valuation Indicator (LVI) <ExternalLink size={11} />
                     </a> — Bi-annual bare land value index covering all 13 Divisional Secretariats of Colombo district (Base: 2017 H1 = 100).
                   </div>
                   <div>
-                    • <a href="https://www.lankapropertyweb.com/land_price_index.php" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
-                      LankaPropertyWeb Land Price Index (LPI) <ExternalLink size={11} />
-                    </a> — Sri Lanka's largest verified residential & commercial property market tracking index.
-                  </div>
-                  <div>
-                    • Direct town links on each card & table row open current verified market listings and active land advertisements for that exact local area.
+                    • <a
+                      href="https://ikman.lk/en/ads/sri-lanka/land"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => openExternalLink('https://ikman.lk/en/ads/sri-lanka/land', e)}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      ikman.lk Real Estate Marketplace <ExternalLink size={11} />
+                    </a> — Verified live land listings and active seller comps nationwide.
                   </div>
                 </div>
               </div>
