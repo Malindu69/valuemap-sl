@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   MapContainer, TileLayer, Marker, Popup, Tooltip, useMapEvents, useMap, Circle,
 } from 'react-leaflet';
@@ -56,133 +56,6 @@ function createClickTargetIcon(): L.DivIcon {
     iconSize: [20, 20],
     iconAnchor: [10, 10],
   });
-}
-
-function createHeatSpotIcon(color: string, size = 26): L.DivIcon {
-  return L.divIcon({
-    className: '',
-    html: `
-      <div style="
-        width: ${size}px;
-        height: ${size}px;
-        border-radius: 50%;
-        background: radial-gradient(circle, ${color} 0%, ${color} 45%, transparent 100%);
-        box-shadow: 0 0 14px ${color}, 0 0 24px ${color};
-        cursor: pointer;
-        border: 2px solid rgba(255, 255, 255, 0.9);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      ">
-        <div style="width: 6px; height: 6px; border-radius: 50%; background: #ffffff;"></div>
-      </div>
-    `,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
-  });
-}
-
-// ─── Canvas Heatmap Layer ─────────────────────────────────────────────────
-
-function priceToHeat(price: number, minP: number, maxP: number): number {
-  if (maxP === minP) return 0.5;
-  return Math.min(1, Math.max(0, (price - minP) / (maxP - minP)));
-}
-
-function heatColor(intensity: number): string {
-  // 0=blue(cold), 0.25=cyan, 0.5=green, 0.75=yellow, 1=red(hot)
-  const stops = [
-    [0,   0,   0, 255],   // blue
-    [0,   128, 255, 255], // cyan-blue
-    [0,   255, 128, 255], // cyan-green
-    [128, 255, 0,   255], // yellow-green
-    [255, 200, 0,   255], // yellow
-    [255, 100, 0,   255], // orange
-    [255, 0,   0,   255], // red
-  ] as [number,number,number,number][];
-  const scaled = intensity * (stops.length - 1);
-  const lo = Math.floor(scaled);
-  const hi = Math.min(stops.length - 1, lo + 1);
-  const t = scaled - lo;
-  const [r, g, b] = stops[lo].slice(0,3).map((v, i) =>
-    Math.round(v + t * (stops[hi][i] - v))
-  );
-  return `rgba(${r},${g},${b}`;
-}
-
-function CanvasHeatmapLayer({ records }: { records: ValuationRecord[] }) {
-  const map = useMap();
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    if (!records.length) return;
-
-    // Create or find canvas
-    let canvas = canvasRef.current;
-    if (!canvas) {
-      canvas = document.createElement('canvas');
-      canvas.style.position = 'absolute';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
-      canvas.style.pointerEvents = 'none';
-      canvas.style.zIndex = '400';
-      canvas.style.opacity = '0.78';
-      map.getPanes().overlayPane.appendChild(canvas);
-      canvasRef.current = canvas;
-    }
-
-    function draw() {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const size = map.getSize();
-      canvas.width = size.x;
-      canvas.height = size.y;
-      const ctx = canvas.getContext('2d')!;
-      ctx.clearRect(0, 0, size.x, size.y);
-
-      const prices = records.map(r => r.pricePerPerch);
-      const minP = Math.min(...prices);
-      const maxP = Math.max(...prices);
-
-      const zoom = map.getZoom();
-      // Radius in pixels scales with zoom level
-      const baseRadius = Math.max(30, Math.min(180, 30 * Math.pow(2, zoom - 7)));
-
-      const topLeft = map.containerPointToLayerPoint([0, 0]);
-
-      for (const r of records) {
-        const pt = map.latLngToLayerPoint([r.coordinates.lat, r.coordinates.lng]);
-        const x = pt.x - topLeft.x;
-        const y = pt.y - topLeft.y;
-        const intensity = priceToHeat(r.pricePerPerch, minP, maxP);
-        const baseColor = heatColor(intensity);
-
-        const grad = ctx.createRadialGradient(x, y, 0, x, y, baseRadius);
-        grad.addColorStop(0,   `${baseColor},0.9)`);
-        grad.addColorStop(0.3, `${baseColor},0.6)`);
-        grad.addColorStop(0.6, `${baseColor},0.25)`);
-        grad.addColorStop(1,   `${baseColor},0)`);
-
-        ctx.beginPath();
-        ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
-      }
-    }
-
-    draw();
-    map.on('move zoom moveend zoomend', draw);
-    return () => {
-      map.off('move zoom moveend zoomend', draw);
-      if (canvasRef.current) {
-        canvasRef.current.remove();
-        canvasRef.current = null;
-      }
-    };
-  }, [map, records]);
-
-  return null;
 }
 
 // ─── Map Click Handler ────────────────────────────────────────────────────
@@ -321,7 +194,7 @@ export default function MapPage({ onAddNew }: Props) {
 
         {/* View Mode Toggle */}
         <div style={{ display: 'flex', gap: 3, background: 'var(--surface-2)', borderRadius: 'var(--radius)', padding: 3 }}>
-          {([['markers', 'Pins'], ['price-range', 'Price Range'], ['heatmap', 'Heatmap 🔥']] as [MapMode, string][]).map(([m, label]) => (
+          {([['markers', 'Pins'], ['price-range', 'Price Range']] as [MapMode, string][]).map(([m, label]) => (
             <button
               key={m}
               onClick={() => setMode(m)}
@@ -486,11 +359,8 @@ export default function MapPage({ onAddNew }: Props) {
 
           {flyTarget && <FlyTo center={flyTarget.center} zoom={flyTarget.zoom} />}
 
-          {/* Heatmap Mode: True canvas gradient heatmap — no pins, smooth color gradient */}
-          {mode === 'heatmap' && <CanvasHeatmapLayer records={filtered} />}
-
-          {/* Regular Pin Markers (Pins and Price Range modes) */}
-          {mode !== 'heatmap' && filtered.map((r) => {
+          {/* Pin Markers (Pins and Price Range modes) */}
+          {filtered.map((r) => {
             const color = mode === 'price-range' ? colorForPrice(r.pricePerPerch) : '#2563eb';
             const icon = createPinIcon(color);
             return (
@@ -577,32 +447,6 @@ export default function MapPage({ onAddNew }: Props) {
           )}
         </MapContainer>
 
-        {/* Legend (Heatmap mode) */}
-        {mode === 'heatmap' && (
-          <div style={{
-            position: 'absolute', bottom: 24, left: 16, zIndex: 990,
-            background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(239, 68, 68, 0.35)',
-            borderRadius: 'var(--radius)', padding: '12px 14px',
-            boxShadow: 'var(--shadow)', minWidth: 170,
-          }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#f87171', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              🔥 Price Heatmap
-            </div>
-            {/* Gradient bar */}
-            <div style={{ height: 10, borderRadius: 5, marginBottom: 5,
-              background: 'linear-gradient(to right, #0000ff, #00aaff, #00ff80, #80ff00, #ffc800, #ff6400, #ff0000)',
-            }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)' }}>
-              <span>Low</span>
-              <span>High</span>
-            </div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.4 }}>
-              Red = highest price / perch<br/>
-              Blue = lowest price / perch
-            </div>
-          </div>
-        )}
 
         {/* Legend (Price-range mode) */}
         {mode === 'price-range' && (

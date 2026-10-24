@@ -115,7 +115,7 @@ export interface SortConfig {
 
 // ─── Map Types ─────────────────────────────────────────────────────────────
 
-export type MapMode = 'markers' | 'heatmap' | 'price-range';
+export type MapMode = 'markers' | 'price-range';
 export type SearchRadius = 0.5 | 1 | 3 | 5;
 
 export interface MapState {

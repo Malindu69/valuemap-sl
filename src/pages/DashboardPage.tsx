@@ -116,7 +116,7 @@ export default function DashboardPage({ onAddNew }: Props) {
                 Explore Sri Lanka Map
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                Visualize pins, price ranges & heatmaps
+                Visualize pins & price ranges on interactive maps
               </div>
             </div>
             <div style={{

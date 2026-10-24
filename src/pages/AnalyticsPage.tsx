@@ -54,7 +54,7 @@ export default function AnalyticsPage() {
     }));
   }, [stats.monthlyActivity]);
 
-  // Province heatmap data
+  // Province price breakdown data
   const provinceChart = useMemo(() => {
     const map: Record<string, number[]> = {};
     for (const r of all) {
