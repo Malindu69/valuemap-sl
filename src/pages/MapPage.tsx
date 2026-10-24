@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   MapContainer, TileLayer, Marker, Popup, Tooltip, useMapEvents, useMap, Circle,
 } from 'react-leaflet';
@@ -83,19 +83,106 @@ function createHeatSpotIcon(color: string, size = 26): L.DivIcon {
   });
 }
 
-const HEAT_LEVELS = [
-  { min: 5000000, color: '#ef4444', label: '> 5M / perch (Highest)', radius: 1800 },
-  { min: 2500000, color: '#f97316', label: '2.5M - 5M / perch (High)', radius: 1400 },
-  { min: 1500000, color: '#eab308', label: '1.5M - 2.5M / perch (Moderate)', radius: 1100 },
-  { min: 800000, color: '#10b981', label: '800K - 1.5M / perch (Mid)', radius: 900 },
-  { min: 0, color: '#06b6d4', label: '< 800K / perch (Affordable)', radius: 800 },
-];
+// ─── Canvas Heatmap Layer ─────────────────────────────────────────────────
 
-function getHeatLevel(price: number) {
-  for (const level of HEAT_LEVELS) {
-    if (price >= level.min) return level;
-  }
-  return HEAT_LEVELS[HEAT_LEVELS.length - 1];
+function priceToHeat(price: number, minP: number, maxP: number): number {
+  if (maxP === minP) return 0.5;
+  return Math.min(1, Math.max(0, (price - minP) / (maxP - minP)));
+}
+
+function heatColor(intensity: number): string {
+  // 0=blue(cold), 0.25=cyan, 0.5=green, 0.75=yellow, 1=red(hot)
+  const stops = [
+    [0,   0,   0, 255],   // blue
+    [0,   128, 255, 255], // cyan-blue
+    [0,   255, 128, 255], // cyan-green
+    [128, 255, 0,   255], // yellow-green
+    [255, 200, 0,   255], // yellow
+    [255, 100, 0,   255], // orange
+    [255, 0,   0,   255], // red
+  ] as [number,number,number,number][];
+  const scaled = intensity * (stops.length - 1);
+  const lo = Math.floor(scaled);
+  const hi = Math.min(stops.length - 1, lo + 1);
+  const t = scaled - lo;
+  const [r, g, b] = stops[lo].slice(0,3).map((v, i) =>
+    Math.round(v + t * (stops[hi][i] - v))
+  );
+  return `rgba(${r},${g},${b}`;
+}
+
+function CanvasHeatmapLayer({ records }: { records: ValuationRecord[] }) {
+  const map = useMap();
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (!records.length) return;
+
+    // Create or find canvas
+    let canvas = canvasRef.current;
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      canvas.style.position = 'absolute';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.pointerEvents = 'none';
+      canvas.style.zIndex = '400';
+      canvas.style.opacity = '0.78';
+      map.getPanes().overlayPane.appendChild(canvas);
+      canvasRef.current = canvas;
+    }
+
+    function draw() {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const size = map.getSize();
+      canvas.width = size.x;
+      canvas.height = size.y;
+      const ctx = canvas.getContext('2d')!;
+      ctx.clearRect(0, 0, size.x, size.y);
+
+      const prices = records.map(r => r.pricePerPerch);
+      const minP = Math.min(...prices);
+      const maxP = Math.max(...prices);
+
+      const zoom = map.getZoom();
+      // Radius in pixels scales with zoom level
+      const baseRadius = Math.max(30, Math.min(180, 30 * Math.pow(2, zoom - 7)));
+
+      const topLeft = map.containerPointToLayerPoint([0, 0]);
+
+      for (const r of records) {
+        const pt = map.latLngToLayerPoint([r.coordinates.lat, r.coordinates.lng]);
+        const x = pt.x - topLeft.x;
+        const y = pt.y - topLeft.y;
+        const intensity = priceToHeat(r.pricePerPerch, minP, maxP);
+        const baseColor = heatColor(intensity);
+
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, baseRadius);
+        grad.addColorStop(0,   `${baseColor},0.9)`);
+        grad.addColorStop(0.3, `${baseColor},0.6)`);
+        grad.addColorStop(0.6, `${baseColor},0.25)`);
+        grad.addColorStop(1,   `${baseColor},0)`);
+
+        ctx.beginPath();
+        ctx.arc(x, y, baseRadius, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+    }
+
+    draw();
+    map.on('move zoom moveend zoomend', draw);
+    return () => {
+      map.off('move zoom moveend zoomend', draw);
+      if (canvasRef.current) {
+        canvasRef.current.remove();
+        canvasRef.current = null;
+      }
+    };
+  }, [map, records]);
+
+  return null;
 }
 
 // ─── Map Click Handler ────────────────────────────────────────────────────
@@ -399,64 +486,8 @@ export default function MapPage({ onAddNew }: Props) {
 
           {flyTarget && <FlyTo center={flyTarget.center} zoom={flyTarget.zoom} />}
 
-          {/* Heatmap Mode: Glowing heat circles and heat spot points (No Pins!) */}
-          {mode === 'heatmap' && filtered.map((r) => {
-            const heat = getHeatLevel(r.pricePerPerch);
-            return (
-              <React.Fragment key={`heat_${r.id}`}>
-                {/* Outer heat gradient diffusion circle */}
-                <Circle
-                  center={[r.coordinates.lat, r.coordinates.lng]}
-                  radius={heat.radius}
-                  pathOptions={{
-                    fillColor: heat.color,
-                    fillOpacity: 0.22,
-                    stroke: false,
-                  }}
-                />
-                {/* Core intensity circle */}
-                <Circle
-                  center={[r.coordinates.lat, r.coordinates.lng]}
-                  radius={heat.radius * 0.42}
-                  pathOptions={{
-                    fillColor: heat.color,
-                    fillOpacity: 0.48,
-                    color: '#ffffff',
-                    weight: 1.5,
-                    stroke: true,
-                  }}
-                />
-                {/* Interactive heat spot */}
-                <Marker
-                  position={[r.coordinates.lat, r.coordinates.lng]}
-                  icon={createHeatSpotIcon(heat.color)}
-                  eventHandlers={{
-                    click: () => {
-                      setSelectedRecord(r);
-                      setClickedLocation(null);
-                    },
-                  }}
-                >
-                  <Tooltip direction="top" offset={[0, -16]} opacity={1} className="val-tooltip">
-                    <div style={{ minWidth: 170, textAlign: 'left', lineHeight: 1.35 }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: heat.color, letterSpacing: '-0.01em' }}>
-                        {formatLKR(r.pricePerPerch, true)} <span style={{ fontSize: 10, fontWeight: 500, color: '#94a3b8' }}>/ perch</span>
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#f8fafc', marginTop: 3 }}>
-                        {r.title}
-                      </div>
-                      <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 2 }}>
-                        {r.town}, {r.district} · {formatExtent(r.landExtent)}
-                      </div>
-                      <div style={{ fontSize: 9, color: '#60a5fa', marginTop: 4, fontWeight: 500 }}>
-                        👉 Click to view valuation details
-                      </div>
-                    </div>
-                  </Tooltip>
-                </Marker>
-              </React.Fragment>
-            );
-          })}
+          {/* Heatmap Mode: True canvas gradient heatmap — no pins, smooth color gradient */}
+          {mode === 'heatmap' && <CanvasHeatmapLayer records={filtered} />}
 
           {/* Regular Pin Markers (Pins and Price Range modes) */}
           {mode !== 'heatmap' && filtered.map((r) => {
@@ -553,17 +584,23 @@ export default function MapPage({ onAddNew }: Props) {
             background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(8px)',
             border: '1px solid rgba(239, 68, 68, 0.35)',
             borderRadius: 'var(--radius)', padding: '12px 14px',
-            boxShadow: 'var(--shadow)',
+            boxShadow: 'var(--shadow)', minWidth: 170,
           }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#f87171', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              🔥 Price Heatmap Intensity
+              🔥 Price Heatmap
             </div>
-            {HEAT_LEVELS.map((lvl) => (
-              <div key={lvl.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <div style={{ width: 12, height: 12, borderRadius: '50%', background: lvl.color, boxShadow: `0 0 6px ${lvl.color}`, flexShrink: 0 }} />
-                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{lvl.label}</span>
-              </div>
-            ))}
+            {/* Gradient bar */}
+            <div style={{ height: 10, borderRadius: 5, marginBottom: 5,
+              background: 'linear-gradient(to right, #0000ff, #00aaff, #00ff80, #80ff00, #ffc800, #ff6400, #ff0000)',
+            }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)' }}>
+              <span>Low</span>
+              <span>High</span>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.4 }}>
+              Red = highest price / perch<br/>
+              Blue = lowest price / perch
+            </div>
           </div>
         )}
 

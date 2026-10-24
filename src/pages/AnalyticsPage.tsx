@@ -72,24 +72,35 @@ export default function AnalyticsPage() {
 
   return (
     <div style={{ overflow: 'auto', height: '100%' }}>
-      <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .analytics-header h1 { font-size: 18px !important; }
+          .analytics-header p { font-size: 12px !important; }
+          .analytics-wrap { padding: 14px !important; }
+          .analytics-chart-grid { grid-template-columns: 1fr !important; }
+          .analytics-province-wrap th, .analytics-province-wrap td { font-size: 11px !important; padding: 8px 10px !important; }
+          .analytics-province-bar { width: 80px !important; }
+          .analytics-price-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
+      <div className="analytics-wrap" style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
         {/* Header */}
-        <div style={{ marginBottom: 24 }}>
+        <div className="analytics-header" style={{ marginBottom: 20 }}>
           <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 24, fontWeight: 800 }}>Analytics</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>
             Trends, comparisons, and price distributions
           </p>
         </div>
 
-        {/* Row: Side by side */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+        {/* Row: Responsive grid - 2 cols on desktop, 1 col on mobile */}
+        <div className="analytics-chart-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginBottom: 20 }}>
           {/* Land type price */}
           <div className="card">
             <div className="card-header">
               <span className="card-title">Price by Property Type</span>
             </div>
             <div className="card-body">
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={typeChart}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
                   <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -125,7 +136,7 @@ export default function AnalyticsPage() {
               <span className="card-title">Valuation Activity Trend</span>
             </div>
             <div className="card-body">
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={trendChart}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
                   <XAxis dataKey="month" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -147,18 +158,18 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Province summary table */}
-        <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-header" style={{ marginBottom: 0 }}>
             <span className="card-title">Province Summary</span>
           </div>
-          <div className="data-table-wrap">
-            <table className="data-table">
+          <div className="analytics-province-wrap data-table-wrap" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <table className="data-table" style={{ minWidth: 420 }}>
               <thead>
                 <tr>
-                  <th>Province</th>
-                  <th>Records</th>
-                  <th>Median Price / Perch</th>
-                  <th>Relative Level</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>Province</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>Records</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>Median / Perch</th>
+                  <th style={{ whiteSpace: 'nowrap', minWidth: 120 }}>Level</th>
                 </tr>
               </thead>
               <tbody>
@@ -170,12 +181,12 @@ export default function AnalyticsPage() {
                       <td style={{ fontWeight: 500 }}>{p.province}</td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{p.count}</td>
                       <td style={{ fontWeight: 700, color: '#34d399' }}>{formatLKR(p.median)}</td>
-                      <td style={{ width: 200 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ flex: 1, height: 6, background: 'var(--surface-2)', borderRadius: 3, overflow: 'hidden' }}>
-                            <div style={{ width: `${pct}%`, height: '100%', background: '#3b82f6', borderRadius: 3 }} />
+                      <td className="analytics-province-bar" style={{ width: 150 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ flex: 1, height: 5, background: 'var(--surface-2)', borderRadius: 3, overflow: 'hidden', minWidth: 40 }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg,#3b82f6,#10b981)', borderRadius: 3 }} />
                           </div>
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 36, textAlign: 'right' }}>{pct.toFixed(0)}%</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 32, textAlign: 'right', flexShrink: 0 }}>{pct.toFixed(0)}%</span>
                         </div>
                       </td>
                     </tr>
@@ -192,7 +203,7 @@ export default function AnalyticsPage() {
             <span className="card-title">Price Range Distribution</span>
           </div>
           <div className="card-body">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+            <div className="analytics-price-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
               {PRICE_RANGE_COLORS.map((range) => {
                 const count = all.filter((r) => {
                   const idx = PRICE_RANGE_COLORS.indexOf(range);
