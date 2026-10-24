@@ -36,6 +36,11 @@ function setCachedUsers(users: StoredUser[]): void {
   }
 }
 
+/** Escape SQL LIKE/ILIKE wildcard pattern characters (%, _, \) to prevent pattern injection */
+function escapeSqlLike(text: string): string {
+  return text.replace(/[%_\\]/g, '\\$&');
+}
+
 // ─── Context ───────────────────────────────────────────────────────────────
 
 interface AuthContextValue extends AuthState {
@@ -98,21 +103,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: 'Please enter both username and password' };
     }
 
+    // Input bounds check to prevent payload bloat
+    if (cleanId.length > 100 || password.length > 100) {
+      setState((s) => ({ ...s, isLoading: false }));
+      return { error: 'Invalid username/email or password' };
+    }
+
     try {
       if (isSupabaseConfigured) {
-        // Try matching by username first (case-insensitive)
+        const escapedId = escapeSqlLike(cleanId);
+
+        // Security: Query matching username AND password on DB side.
+        // The plaintext password column is NEVER returned to client memory.
         let { data, error } = await supabase
           .from('app_users')
-          .select('*')
-          .ilike('username', cleanId)
+          .select('id, username, name, email, role, created_at')
+          .ilike('username', escapedId)
+          .eq('password', password)
           .limit(1);
 
-        // If not found by username, try by email
+        // If not matched by username, try by email + password
         if (!error && (!data || data.length === 0)) {
           const result = await supabase
             .from('app_users')
-            .select('*')
-            .ilike('email', cleanId)
+            .select('id, username, name, email, role, created_at')
+            .ilike('email', escapedId)
+            .eq('password', password)
             .limit(1);
           data = result.data;
           error = result.error;
@@ -120,7 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
           setState((s) => ({ ...s, isLoading: false }));
-          // Surface the real error (likely RLS/permissions issue)
           return { error: `Database error: ${error.message}. Check Supabase RLS policies for app_users table.` };
         }
 
@@ -130,12 +145,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const userRow = data[0];
-        // Validate password directly against DB (plain text comparison)
-        if (userRow.password !== password) {
-          setState((s) => ({ ...s, isLoading: false }));
-          return { error: 'Invalid username/email or password' };
-        }
-
         const user: User = {
           id: String(userRow.id),
           name: userRow.name || userRow.username,
@@ -179,9 +188,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role: 'admin' | 'valuer';
     password: string;
   }): Promise<{ success: boolean; error?: string }> => {
+    // Role-based authorization check
+    if (state.user?.role !== 'admin') {
+      return { success: false, error: 'Unauthorized: Only an Administrator can create users' };
+    }
+
     const cleanUsername = data.username.trim();
     if (!cleanUsername) return { success: false, error: 'Username is required' };
-    if (!data.password) return { success: false, error: 'Password is required' };
+    if (cleanUsername.length < 3 || cleanUsername.length > 40) {
+      return { success: false, error: 'Username must be between 3 and 40 characters' };
+    }
+    if (!/^[a-zA-Z0-9_.-]+$/.test(cleanUsername)) {
+      return { success: false, error: 'Username can only contain alphanumeric characters, underscores, dots, or dashes' };
+    }
+    if (!data.password || data.password.length < 5) {
+      return { success: false, error: 'Password must be at least 5 characters long' };
+    }
 
     if (!isSupabaseConfigured) {
       return { success: false, error: 'Database is not connected' };
@@ -208,9 +230,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       return { success: false, error: String(err) };
     }
-  }, [refreshUsers]);
+  }, [state.user, refreshUsers]);
 
   const deleteUser = useCallback(async (id: string): Promise<{ success: boolean; error?: string }> => {
+    // Role-based authorization check
+    if (state.user?.role !== 'admin') {
+      return { success: false, error: 'Unauthorized: Only an Administrator can delete users' };
+    }
+
+    // Prevent self-deletion
+    if (state.user.id === id) {
+      return { success: false, error: 'Cannot delete your own active administrator account' };
+    }
+
     if (!isSupabaseConfigured) {
       return { success: false, error: 'Database is not connected' };
     }
@@ -226,7 +258,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       return { success: false, error: String(err) };
     }
-  }, [refreshUsers]);
+  }, [state.user, refreshUsers]);
 
   const canEdit = state.user?.role === 'admin' || state.user?.role === 'valuer';
   const canAdmin = state.user?.role === 'admin';
