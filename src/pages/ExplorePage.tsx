@@ -172,8 +172,16 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
             }}>
               Sri Lanka Land Price Explorer
             </h1>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-              Explore <strong>{MARKET_BENCHMARKS.length} official market benchmarks</strong> across all 9 provinces • CBSL LVI Index: <strong>256.4 (+11.4% YoY)</strong>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span>Explore <strong>{MARKET_BENCHMARKS.length} official market benchmarks</strong> across all 9 provinces • CBSL LVI Index: <strong>256.4 (+11.4% YoY)</strong></span>
+              <a
+                href={CBSL_LVI_DATA.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 600, fontSize: 11 }}
+              >
+                <ExternalLink size={11} /> Central Bank Official Report
+              </a>
             </div>
           </div>
 
@@ -446,6 +454,25 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                   </div>
                 </div>
 
+                {/* Reference Link */}
+                <div style={{
+                  marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: 'rgba(56,189,248,0.08)', padding: '6px 10px', borderRadius: 6,
+                  border: '1px solid rgba(56,189,248,0.2)',
+                }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', maxWidth: 170 }} className="truncate" title={selectedBenchmark.source}>
+                    {selectedBenchmark.source}
+                  </span>
+                  <a
+                    href={selectedBenchmark.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 11, color: '#38bdf8', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}
+                  >
+                    <ExternalLink size={12} /> View Reference
+                  </a>
+                </div>
+
                 <div style={{ display: 'flex', gap: 8, marginTop: 14, paddingTop: 10, borderTop: '1px solid var(--border-subtle)' }}>
                   {onUseAsValuation && (
                     <button
@@ -503,13 +530,24 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                         <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>
                           <strong>10 Perch Value:</strong> {formatLKR(c.avgPricePerPerch * 10)}
                         </div>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          style={{ width: '100%', marginTop: 8, fontSize: 11, color: '#38bdf8' }}
-                          onClick={() => focusBenchmarkOnMap(c)}
-                        >
-                          <MapPin size={12} /> View on Map
-                        </button>
+                        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ flex: 1, fontSize: 11, color: '#38bdf8' }}
+                            onClick={() => focusBenchmarkOnMap(c)}
+                          >
+                            <MapPin size={12} /> Map
+                          </button>
+                          <a
+                            href={c.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: 11, color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: 3, textDecoration: 'none' }}
+                          >
+                            <ExternalLink size={11} /> Source
+                          </a>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -656,6 +694,24 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                           </div>
                         </div>
 
+                        {/* Source Reference Link */}
+                        <div style={{
+                          marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          background: 'var(--surface-2)', padding: '5px 8px', borderRadius: 6, fontSize: 10,
+                        }}>
+                          <span style={{ color: 'var(--text-muted)', maxWidth: 170 }} className="truncate" title={b.source}>
+                            {b.source}
+                          </span>
+                          <a
+                            href={b.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: '#38bdf8', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3, textDecoration: 'none' }}
+                          >
+                            <ExternalLink size={11} /> Source
+                          </a>
+                        </div>
+
                         {/* Card actions */}
                         <div style={{
                           marginTop: 14, paddingTop: 10, borderTop: '1px solid var(--border-subtle)',
@@ -740,6 +796,16 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
+                              <a
+                                href={b.sourceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-ghost btn-sm"
+                                style={{ padding: '3px 8px', fontSize: 11, color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: 3, textDecoration: 'none' }}
+                                title="Open reference source data"
+                              >
+                                <ExternalLink size={11} /> Source
+                              </a>
                               <button
                                 className="btn btn-ghost btn-sm"
                                 style={{ padding: '3px 8px', fontSize: 11, color: '#38bdf8' }}
@@ -771,6 +837,32 @@ export default function ExplorePage({ onUseAsValuation }: Props) {
                   </table>
                 </div>
               )}
+
+              {/* ── Official Citations & Links ── */}
+              <div style={{
+                marginTop: 24, padding: '16px 20px', borderRadius: 'var(--radius)',
+                background: 'rgba(15,23,42,0.6)', border: '1px solid var(--border-subtle)',
+                fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6,
+              }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
+                  Official References & Published Source Datasets:
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div>
+                    • <a href="https://www.cbsl.gov.lk/en/statistics/economic-indicators/land-valuation-indicator" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
+                      Central Bank of Sri Lanka (CBSL) Land Valuation Indicator (LVI) <ExternalLink size={11} />
+                    </a> — Bi-annual bare land value index covering all 13 Divisional Secretariats of Colombo district (Base: 2017 H1 = 100).
+                  </div>
+                  <div>
+                    • <a href="https://www.lankapropertyweb.com/land_price_index.php" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
+                      LankaPropertyWeb Land Price Index (LPI) <ExternalLink size={11} />
+                    </a> — Sri Lanka's largest verified residential & commercial property market tracking index.
+                  </div>
+                  <div>
+                    • Direct town links on each card & table row open current verified market listings and active land advertisements for that exact local area.
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

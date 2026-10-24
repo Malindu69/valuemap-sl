@@ -20,6 +20,7 @@ export interface MarketBenchmark {
   };
   lastUpdated: string;
   source: string;
+  sourceUrl: string;
 }
 
 export interface CbslIndicatorStats {
@@ -32,6 +33,7 @@ export interface CbslIndicatorStats {
   baseYear: string;
   period: string;
   source: string;
+  sourceUrl: string;
 }
 
 export const CBSL_LVI_DATA: CbslIndicatorStats = {
@@ -44,6 +46,7 @@ export const CBSL_LVI_DATA: CbslIndicatorStats = {
   baseYear: '2017 H1 = 100',
   period: '2024 / 2025 Central Bank of Sri Lanka',
   source: 'Central Bank of Sri Lanka (CBSL) Land Valuation Indicator (LVI)',
+  sourceUrl: 'https://www.cbsl.gov.lk/en/statistics/economic-indicators/land-valuation-indicator',
 };
 
 export const MARKET_BENCHMARKS: MarketBenchmark[] = [
@@ -61,7 +64,8 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     keyDrivers: ['World Trade Center & Central Bank nexus', 'Port City main entrance artery', 'Rare commercial freehold tenure'],
     coordinates: { lat: 6.9344, lng: 79.8428 },
     lastUpdated: '2025 / 2026',
-    source: 'CBSL LVI Survey & Prime Commercial Broker Data',
+    source: 'CBSL LVI Survey & Prime Commercial Data',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-colombo-1',
   },
   {
     id: 'col-03',
@@ -77,6 +81,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9038, lng: 79.8519 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI & CBSL LVI Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-colombo-3',
   },
   {
     id: 'col-07',
@@ -92,6 +97,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9083, lng: 79.8698 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI & CBSL LVI Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-colombo-7',
   },
   {
     id: 'col-02',
@@ -107,6 +113,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9205, lng: 79.8569 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI & Market Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-colombo-2',
   },
   {
     id: 'col-04',
@@ -122,6 +129,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8912, lng: 79.8587 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-colombo-4',
   },
   {
     id: 'col-11',
@@ -137,6 +145,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9366, lng: 79.8532 },
     lastUpdated: '2025 / 2026',
     source: 'Commercial Market Survey & CBSL Records',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-colombo-11',
   },
   {
     id: 'col-05',
@@ -152,6 +161,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8795, lng: 79.8665 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI & CBSL LVI',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-colombo-5',
   },
   {
     id: 'col-06',
@@ -167,6 +177,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8724, lng: 79.8619 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-colombo-6',
   },
   {
     id: 'col-08',
@@ -182,6 +193,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9147, lng: 79.8774 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI & Industry Reports',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-colombo-8',
   },
   {
     id: 'col-10',
@@ -197,6 +209,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9312, lng: 79.8675 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-colombo-10',
   },
 
   // ─── COLOMBO SUBURBS & ADMINISTRATIVE CORRIDORS ─────────────────────────
@@ -214,6 +227,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9095, lng: 79.8943 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI & Local Comp Data',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-rajagiriya',
   },
   {
     id: 'sub-battaramulla',
@@ -229,6 +243,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8988, lng: 79.9189 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-battaramulla',
   },
   {
     id: 'sub-thalawathugoda',
@@ -244,6 +259,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8778, lng: 79.9324 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI & Valuer Surveys',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-thalawathugoda',
   },
   {
     id: 'sub-hokandara',
@@ -259,6 +275,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8685, lng: 79.9482 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-hokandara',
   },
   {
     id: 'sub-dehiwala',
@@ -274,6 +291,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8402, lng: 79.8653 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb & CBSL LVI',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-dehiwala',
   },
   {
     id: 'sub-nugegoda',
@@ -289,6 +307,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8649, lng: 79.8997 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-nugegoda',
   },
   {
     id: 'sub-malabe',
@@ -304,6 +323,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9042, lng: 79.9547 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-malabe',
   },
   {
     id: 'sub-maharagama',
@@ -319,6 +339,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8482, lng: 79.9267 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb & CBSL LVI',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-maharagama',
   },
   {
     id: 'sub-kottawa',
@@ -334,6 +355,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8415, lng: 79.9654 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kottawa',
   },
   {
     id: 'sub-piliyandala',
@@ -349,6 +371,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8018, lng: 79.9227 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Top Growth Index',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-piliyandala',
   },
   {
     id: 'sub-homagama',
@@ -364,6 +387,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8427, lng: 80.0034 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Top Growth Index',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-homagama',
   },
   {
     id: 'sub-athurugiriya',
@@ -379,6 +403,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8732, lng: 79.9885 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-athurugiriya',
   },
   {
     id: 'sub-kaduwela',
@@ -394,6 +419,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9324, lng: 79.9821 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kaduwela',
   },
   {
     id: 'sub-moratuwa',
@@ -409,6 +435,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.7758, lng: 79.8824 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-moratuwa',
   },
 
   // ─── GAMPAHA DISTRICT (WESTERN PROVINCE) ─────────────────────────────────
@@ -425,6 +452,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.2088, lng: 79.8358 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Top Growth Index',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-negombo',
   },
   {
     id: 'gam-katunayake',
@@ -439,6 +467,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.1685, lng: 79.8856 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-katunayake',
   },
   {
     id: 'gam-jaela',
@@ -453,6 +482,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.0754, lng: 79.8924 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-ja-ela',
   },
   {
     id: 'gam-gampaha-town',
@@ -467,6 +497,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.0917, lng: 79.9999 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb LPI Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-gampaha',
   },
   {
     id: 'gam-kadawatha',
@@ -481,6 +512,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.0016, lng: 79.9515 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kadawatha',
   },
   {
     id: 'gam-kelaniya',
@@ -495,6 +527,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9697, lng: 79.9192 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kelaniya',
   },
   {
     id: 'gam-wattala',
@@ -509,6 +542,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9897, lng: 79.8912 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-wattala',
   },
   {
     id: 'gam-yakkala',
@@ -523,6 +557,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.0858, lng: 80.0354 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Top Growth Index',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-yakkala',
   },
   {
     id: 'gam-minuwangoda',
@@ -537,6 +572,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.1654, lng: 79.9521 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-minuwangoda',
   },
   {
     id: 'gam-nittambuwa',
@@ -551,6 +587,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.1424, lng: 80.0987 },
     lastUpdated: '2025 / 2026',
     source: 'Market Survey & Property Records',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-nittambuwa',
   },
 
   // ─── KALUTARA DISTRICT (WESTERN PROVINCE) ────────────────────────────────
@@ -567,6 +604,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.7134, lng: 79.9074 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-panadura',
   },
   {
     id: 'kal-wadduwa',
@@ -581,6 +619,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.6667, lng: 79.9333 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-wadduwa',
   },
   {
     id: 'kal-kalutara-town',
@@ -595,6 +634,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.5854, lng: 79.9607 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kalutara',
   },
   {
     id: 'kal-beruwala',
@@ -609,6 +649,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.4789, lng: 79.9824 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-beruwala',
   },
   {
     id: 'kal-horana',
@@ -623,6 +664,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.7167, lng: 80.0633 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-horana',
   },
 
   // ─── KANDY & CENTRAL PROVINCE ────────────────────────────────────────────
@@ -638,7 +680,8 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     keyDrivers: ['UNESCO World Heritage Temple of the Tooth', 'Severe geographic land scarcity in Kandy valley', 'Top national schools (Trinity, Kingswood, Dharmaraja)'],
     coordinates: { lat: 7.2906, lng: 80.6337 },
     lastUpdated: '2025 / 2026',
-    source: 'LankaPropertyWeb Central Index & Market Comps',
+    source: 'LankaPropertyWeb Central Index & Comps',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kandy',
   },
   {
     id: 'kan-suburbs',
@@ -653,6 +696,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.2755, lng: 80.6124 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Kandy Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kandy',
   },
   {
     id: 'kan-peradeniya',
@@ -667,6 +711,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.2604, lng: 80.5956 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Kandy Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-peradeniya',
   },
   {
     id: 'kan-katugastota',
@@ -681,6 +726,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.3235, lng: 80.6189 },
     lastUpdated: '2025 / 2026',
     source: 'Kandy Valuer Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-katugastota',
   },
   {
     id: 'kan-kundasale-digana',
@@ -695,6 +741,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.2882, lng: 80.7042 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kundasale',
   },
   {
     id: 'nuw-town',
@@ -709,6 +756,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9497, lng: 80.7891 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Tourism Index',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-nuwara-eliya',
   },
   {
     id: 'nuw-hatton',
@@ -723,6 +771,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8912, lng: 80.5962 },
     lastUpdated: '2025 / 2026',
     source: 'Central Property Surveys',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-hatton',
   },
   {
     id: 'mat-matale-town',
@@ -737,6 +786,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.4675, lng: 80.6234 },
     lastUpdated: '2025 / 2026',
     source: 'Central Province Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-matale',
   },
 
   // ─── SOUTHERN PROVINCE (GALLE, MATARA, HAMBANTOTA) ───────────────────────
@@ -753,6 +803,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.0271, lng: 80.217 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Southern Survey & Local Brokers',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-galle',
   },
   {
     id: 'gal-city-suburbs',
@@ -767,6 +818,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.0535, lng: 80.221 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Southern Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-galle',
   },
   {
     id: 'gal-unawatuna-talpe',
@@ -781,6 +833,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.0108, lng: 80.2492 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Southern Index',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-unawatuna',
   },
   {
     id: 'gal-hikkaduwa',
@@ -795,6 +848,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.1395, lng: 80.1063 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Southern Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-hikkaduwa',
   },
   {
     id: 'mat-weligama-mirissa',
@@ -809,6 +863,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 5.9722, lng: 80.4289 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Southern Index',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-weligama',
   },
   {
     id: 'mat-city-center',
@@ -823,6 +878,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 5.9496, lng: 80.5469 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Southern Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-matara',
   },
   {
     id: 'mat-tangalle',
@@ -837,6 +893,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.0243, lng: 80.7941 },
     lastUpdated: '2025 / 2026',
     source: 'Southern Coastal Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-tangalle',
   },
   {
     id: 'ham-town-port',
@@ -851,6 +908,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.1248, lng: 81.1185 },
     lastUpdated: '2025 / 2026',
     source: 'Market Survey & Property Portals',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-hambantota',
   },
   {
     id: 'ham-tissa',
@@ -865,6 +923,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.2798, lng: 81.2872 },
     lastUpdated: '2025 / 2026',
     source: 'Tourism Comp Data',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-tissamaharama',
   },
 
   // ─── NORTH WESTERN PROVINCE (KURUNEGALA, PUTTALAM) ───────────────────────
@@ -881,6 +940,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.4863, lng: 80.3623 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Provincial Index',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kurunegala',
   },
   {
     id: 'kur-suburbs',
@@ -895,6 +955,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.5342, lng: 80.4021 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kurunegala',
   },
   {
     id: 'kur-kuliyapitiya',
@@ -909,6 +970,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.4688, lng: 80.0401 },
     lastUpdated: '2025 / 2026',
     source: 'North Western Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kuliyapitiya',
   },
   {
     id: 'put-chilaw',
@@ -923,6 +985,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.5758, lng: 79.7952 },
     lastUpdated: '2025 / 2026',
     source: 'Puttalam Property Comps',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-chilaw',
   },
   {
     id: 'put-wennappuwa',
@@ -937,6 +1000,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.3556, lng: 79.8415 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-wennappuwa',
   },
 
   // ─── NORTH CENTRAL PROVINCE (ANURADHAPURA, POLONNARUWA) ──────────────────
@@ -953,6 +1017,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 8.3114, lng: 80.4037 },
     lastUpdated: '2025 / 2026',
     source: 'North Central Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-anuradhapura',
   },
   {
     id: 'ncp-polonnaruwa',
@@ -967,6 +1032,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.9403, lng: 81.0188 },
     lastUpdated: '2025 / 2026',
     source: 'North Central Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-polonnaruwa',
   },
 
   // ─── UVA PROVINCE (BADULLA, BANDARAWELA, ELLA) ───────────────────────────
@@ -983,6 +1049,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8667, lng: 81.0466 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Uva Index',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-ella',
   },
   {
     id: 'uva-badulla-town',
@@ -997,6 +1064,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.9934, lng: 81.055 },
     lastUpdated: '2025 / 2026',
     source: 'Uva Province Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-badulla',
   },
   {
     id: 'uva-bandarawela',
@@ -1011,6 +1079,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8258, lng: 80.9856 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-bandarawela',
   },
 
   // ─── SABARAGAMUWA PROVINCE (RATNAPURA, KEGALLE) ───────────────────────────
@@ -1027,6 +1096,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.6828, lng: 80.4035 },
     lastUpdated: '2025 / 2026',
     source: 'Sabaragamuwa Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-ratnapura',
   },
   {
     id: 'sab-kegalle',
@@ -1041,6 +1111,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.2514, lng: 80.3464 },
     lastUpdated: '2025 / 2026',
     source: 'Sabaragamuwa Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kegalle',
   },
 
   // ─── NORTHERN PROVINCE (JAFFNA, KILINOCHCHI) ─────────────────────────────
@@ -1057,6 +1128,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 9.6685, lng: 80.0275 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Northern Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-jaffna',
   },
   {
     id: 'jaf-chavakachcheri',
@@ -1071,6 +1143,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 9.6542, lng: 80.1584 },
     lastUpdated: '2025 / 2026',
     source: 'Northern Province Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-jaffna',
   },
   {
     id: 'nor-kilinochchi',
@@ -1085,6 +1158,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 9.3803, lng: 80.3992 },
     lastUpdated: '2025 / 2026',
     source: 'Northern Province Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-kilinochchi',
   },
 
   // ─── EASTERN PROVINCE (TRINCOMALEE, BATTICALOA, AMAPARA) ─────────────────
@@ -1101,6 +1175,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 8.5874, lng: 81.2152 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Eastern Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-trincomalee',
   },
   {
     id: 'eas-arugambay',
@@ -1115,6 +1190,7 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 6.8427, lng: 81.8291 },
     lastUpdated: '2025 / 2026',
     source: 'LankaPropertyWeb Eastern Index',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-arugam-bay',
   },
   {
     id: 'eas-batticaloa',
@@ -1129,5 +1205,6 @@ export const MARKET_BENCHMARKS: MarketBenchmark[] = [
     coordinates: { lat: 7.717, lng: 81.7001 },
     lastUpdated: '2025 / 2026',
     source: 'Eastern Province Survey',
+    sourceUrl: 'https://www.lankapropertyweb.com/land/for-sale-in-batticaloa',
   },
 ];
