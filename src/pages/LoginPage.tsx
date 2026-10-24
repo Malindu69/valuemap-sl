@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { MapPin, Eye, EyeOff, Lock, Mail, Users } from 'lucide-react';
+import { MapPin, Eye, EyeOff, Lock, User, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
   const { login, guestLogin, isLoading } = useAuth();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
@@ -12,7 +12,7 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    const result = await login(email, password);
+    const result = await login(identifier, password);
     if (result.error) setError(result.error);
   }
 
@@ -102,38 +102,43 @@ export default function LoginPage() {
             }}>
               <Users size={18} color="#34d399" />
             </div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#34d399' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 Continue as Guest (View Only)
+                <span style={{ fontSize: 10, background: 'rgba(16,185,129,0.2)', color: '#34d399', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }}>
+                  Public
+                </span>
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                Browse all valuations and maps — no account needed
+                Browse map, records, and analytics without logging in
               </div>
             </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 16 }}>›</div>
           </button>
 
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20,
-          }}>
+          {/* Separator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
             <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>OR SIGN IN</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              or sign in to account
+            </span>
             <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div className="form-group">
-              <label className="form-label">Email Address</label>
+              <label className="form-label">Username or Email</label>
               <div style={{ position: 'relative' }}>
-                <Mail size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <User size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
-                  type="email"
+                  type="text"
                   className="form-input"
                   style={{ paddingLeft: 32 }}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="e.g. Admin or Dilhani"
                   required
-                  autoComplete="email"
+                  autoComplete="username"
                 />
               </div>
             </div>
@@ -188,38 +193,8 @@ export default function LoginPage() {
           </form>
         </div>
 
-        {/* Credentials hint — only for internal use */}
-        <div style={{
-          marginTop: 16, padding: '14px 16px',
-          background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)',
-          borderRadius: 'var(--radius)',
-        }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: '#34d399', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Staff Credentials
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {[
-              { label: 'Admin', email: 'admin@valuemap.lk', pw: 'valuemap2024' },
-              { label: 'Valuer', email: 'valuer@valuemap.lk', pw: 'valuer2024' },
-            ].map((c) => (
-              <button
-                key={c.label}
-                type="button"
-                onClick={() => { setEmail(c.email); setPassword(c.pw); }}
-                style={{
-                  background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer',
-                  color: 'var(--text-secondary)', fontSize: 12, padding: '2px 0',
-                }}
-              >
-                <span style={{ color: 'var(--text-muted)', width: 46, display: 'inline-block' }}>{c.label}:</span>
-                {c.email} / <span style={{ fontFamily: 'monospace' }}>{c.pw}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, marginTop: 16 }}>
-          © {new Date().getFullYear()} ValueMap SL
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, marginTop: 20 }}>
+          © {new Date().getFullYear()} ValueMap SL · Land Valuation Intelligence
         </p>
       </div>
     </div>

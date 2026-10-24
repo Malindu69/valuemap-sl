@@ -370,12 +370,22 @@ export const db = {
 
   /** Get all deleted or archived records (Recycle Bin / Trash) */
   getTrash(): ValuationRecord[] {
-    const fromActiveArchived = getActiveList().filter((r) => r.isArchived);
+    const activeList = getActiveList();
+    const fromActiveArchived = activeList.filter((r) => r.isArchived);
     const fromTrashStore = loadTrashFromStorage();
+    
+    // Any record that is active in the database (isArchived === false) must NEVER appear in trash
+    const nonArchivedIds = new Set(activeList.filter((r) => !r.isArchived).map((r) => r.id));
+
     // Combine and deduplicate by id
     const map = new Map<string, ValuationRecord>();
-    fromTrashStore.forEach((r) => map.set(r.id, r));
+    fromTrashStore.forEach((r) => {
+      if (!nonArchivedIds.has(r.id)) {
+        map.set(r.id, { ...r, isArchived: true });
+      }
+    });
     fromActiveArchived.forEach((r) => map.set(r.id, r));
+
     return Array.from(map.values());
   },
 
@@ -392,7 +402,7 @@ export const db = {
       pricePerPerch: calculatePricePerPerch(data.totalLandValue, data.landExtent.perches),
       createdAt: now,
       updatedAt: now,
-      isDemoData: !isLive,
+      isDemoData: false,
     };
 
     const updated = [record, ...getActiveList()];
@@ -439,28 +449,37 @@ export const db = {
   },
 
   restore(id: string): boolean {
-    // 1. Check if record is in active list marked as isArchived
-    const activeMatch = getActiveList().find((r) => r.id === id);
+    // 1. Always purge from trash storage
+    const trash = loadTrashFromStorage();
+    const itemInTrash = trash.find((r) => r.id === id);
+    saveTrashToStorage(trash.filter((r) => r.id !== id));
+
+    // 2. Un-archive in active list if present
+    const list = getActiveList();
+    const activeMatch = list.find((r) => r.id === id);
+
     if (activeMatch) {
       db.update(id, { isArchived: false });
-      return true;
-    }
-    // 2. Check if record is in trash storage
-    const trash = loadTrashFromStorage();
-    const item = trash.find((r) => r.id === id);
-    if (item) {
-      const restored = { ...item, isArchived: false, updatedAt: new Date().toISOString() };
-      const updatedList = [restored, ...getActiveList()];
+    } else if (itemInTrash) {
+      const restored: ValuationRecord = { ...itemInTrash, isArchived: false, updatedAt: new Date().toISOString() };
+      const updatedList = [restored, ...list.filter((r) => r.id !== id)];
       setActiveList(updatedList);
-      saveTrashToStorage(trash.filter((r) => r.id !== id));
       if (_currentEnv === 'live' && isSupabaseConfigured) {
         supabase.from('valuation_records').upsert([toRow(restored)]).then(({ error }) => {
           if (error) console.warn('Supabase restore warning:', error.message);
         });
       }
-      return true;
     }
-    return false;
+
+    // 3. Sync to Supabase cloud DB
+    if (_currentEnv === 'live' && isSupabaseConfigured) {
+      supabase.from('valuation_records').update({ is_archived: false }).eq('id', id).then(({ error }) => {
+        if (error) console.warn('Supabase restore status warning:', error.message);
+      });
+    }
+
+    notifyListeners();
+    return true;
   },
 
   /** Safe soft-delete: moves record to Recycle Bin / Trash with instant recovery ability */

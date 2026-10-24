@@ -31,23 +31,6 @@ export default function AnalyticsPage() {
   const all = useMemo(() => db.getAll(), []);
   const stats = useMemo(() => db.getDashboardStats(), []);
 
-  // District price comparison
-  const districtChart = useMemo(() => {
-    const map: Record<string, number[]> = {};
-    for (const r of all) {
-      if (!map[r.district]) map[r.district] = [];
-      map[r.district].push(r.pricePerPerch);
-    }
-    return Object.entries(map)
-      .map(([district, prices]) => ({
-        district,
-        median: Math.round(median(prices)),
-        average: Math.round(average(prices)),
-        count: prices.length,
-      }))
-      .sort((a, b) => b.median - a.median);
-  }, [all]);
-
   // Land type price
   const typeChart = useMemo(() => {
     const map: Partial<Record<LandType, number[]>> = {};
@@ -98,40 +81,7 @@ export default function AnalyticsPage() {
           </p>
         </div>
 
-        {/* Row 1: District price comparison */}
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="card-header">
-            <span className="card-title">Median Price per Perch by District (LKR)</span>
-          </div>
-          <div className="card-body">
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={districtChart} layout="vertical" margin={{ left: 20, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" horizontal={false} />
-                <XAxis
-                  type="number"
-                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
-                  axisLine={false} tickLine={false}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="district"
-                  tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
-                  width={100}
-                  axisLine={false} tickLine={false}
-                />
-                <Tooltip {...CHART_STYLE} formatter={(v: any) => [formatLKR(Number(v) || 0), 'Median']} />
-                <Bar dataKey="median" name="Median" radius={[0, 4, 4, 0]}>
-                  {districtChart.map((_, i) => (
-                    <Cell key={i} fill={`hsl(${220 - i * 8}, 70%, ${55 - i * 2}%)`} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Row 2: Side by side */}
+        {/* Row: Side by side */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
           {/* Land type price */}
           <div className="card">

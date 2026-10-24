@@ -1,16 +1,14 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, TrendingUp, MapPin, Building2, Calendar,
-  ArrowUpRight, Plus,
+  LayoutDashboard, MapPin, Building2, Plus, Map, ArrowRight,
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { db } from '../services/db';
-import { formatLKR, formatDate, monthLabel } from '../utils';
+import { formatLKR, formatDate } from '../utils';
 import { LAND_TYPE_LABELS, PRICE_RANGE_COLORS } from '../constants';
-import type { LandType } from '../types';
 
 const TYPE_COLORS: Record<string, string> = {
   residential: '#3b82f6',
@@ -34,7 +32,9 @@ const CHART_TOOLTIP_STYLE = {
 interface Props { onAddNew: () => void; }
 
 export default function DashboardPage({ onAddNew }: Props) {
+  const navigate = useNavigate();
   const stats = useMemo(() => db.getDashboardStats(), []);
+  const allRecords = useMemo(() => db.getAll(), []);
 
   return (
     <div style={{ overflow: 'auto', height: '100%' }}>
@@ -46,71 +46,92 @@ export default function DashboardPage({ onAddNew }: Props) {
               Dashboard
             </h1>
             <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>
-              Overview of your land valuation records
+              Overview of your land valuation intelligence platform
             </p>
           </div>
-          <button className="btn btn-primary" onClick={onAddNew} style={{ whiteSpace: 'nowrap' }}>
-            <Plus size={15} /> Add Valuation
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              className="btn btn-ghost"
+              onClick={() => navigate('/map')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.3)',
+                color: '#60a5fa', fontWeight: 600,
+              }}
+            >
+              <Map size={15} /> View on Map
+            </button>
+            <button className="btn btn-primary" onClick={onAddNew} style={{ whiteSpace: 'nowrap' }}>
+              <Plus size={15} /> Add Valuation
+            </button>
+          </div>
         </div>
 
         {/* KPI Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 20 }}>
           <StatCard
-            icon={<LayoutDashboard size={18} />}
+            icon={<LayoutDashboard size={20} />}
             iconBg="rgba(59,130,246,0.15)"
             iconColor="#60a5fa"
             label="Total Valuations"
             value={stats.totalRecords.toString()}
-            sub="Active records"
+            sub="Active records in database"
           />
           <StatCard
-            icon={<MapPin size={18} />}
+            icon={<MapPin size={20} />}
             iconBg="rgba(168,85,247,0.15)"
             iconColor="#a855f7"
             label="Districts Covered"
             value={stats.totalDistricts.toString()}
-            sub="Across Sri Lanka"
+            sub="Districts across Sri Lanka"
           />
-          <StatCard
-            icon={<TrendingUp size={18} />}
-            iconBg="rgba(34,197,94,0.15)"
-            iconColor="#22c55e"
-            label="Median Price / Perch"
-            value={formatLKR(stats.medianPricePerPerch, true)}
-            sub="Across all records"
-          />
-          <StatCard
-            icon={<Building2 size={18} />}
-            iconBg="rgba(245,158,11,0.15)"
-            iconColor="#f59e0b"
-            label="Average Price / Perch"
-            value={formatLKR(stats.averagePricePerPerch, true)}
-            sub="Mean of all records"
-          />
-        </div>
-
-        {/* Charts Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 20 }}>
-          {/* Monthly Activity */}
-          <div className="card">
-            <div className="card-header">
-              <span className="card-title">Valuation Activity</span>
-              <Calendar size={14} style={{ color: 'var(--text-muted)' }} />
+          {/* Quick Map Action Card */}
+          <div
+            onClick={() => navigate('/map')}
+            style={{
+              background: 'linear-gradient(135deg, rgba(37,99,235,0.12), rgba(16,185,129,0.1))',
+              border: '1px solid rgba(37,99,235,0.25)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '16px 20px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(37,99,235,0.5)';
+              (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(37,99,235,0.25)';
+              (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Map Explorer
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginTop: 2 }}>
+                Explore Sri Lanka Map
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                Visualize pins, price ranges & heatmaps
+              </div>
             </div>
-            <div className="card-body">
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={stats.monthlyActivity.map((m) => ({ ...m, month: monthLabel(m.month) }))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
-                  <XAxis dataKey="month" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip {...CHART_TOOLTIP_STYLE} />
-                  <Bar dataKey="count" name="Valuations" fill="var(--brand-600)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div style={{
+              width: 38, height: 38, borderRadius: '50%',
+              background: 'var(--brand-600)', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <ArrowRight size={18} />
             </div>
           </div>
+        </div>
 
+        {/* Charts & Recent Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginBottom: 20 }}>
           {/* By Land Type */}
           <div className="card">
             <div className="card-header">
@@ -118,52 +139,34 @@ export default function DashboardPage({ onAddNew }: Props) {
               <Building2 size={14} style={{ color: 'var(--text-muted)' }} />
             </div>
             <div className="card-body">
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={stats.byLandType.map((t) => ({
-                      name: LAND_TYPE_LABELS[t.type] ?? t.type,
-                      value: t.count,
-                      color: TYPE_COLORS[t.type] ?? '#64748b',
-                    }))}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    dataKey="value"
-                    labelLine={false}
-                  >
-                    {stats.byLandType.map((t, i) => (
-                      <Cell key={i} fill={TYPE_COLORS[t.type] ?? '#64748b'} />
-                    ))}
-                  </Pie>
-                  <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v: any) => [v, 'Records']} />
-                  <Legend
-                    iconType="circle"
-                    wrapperStyle={{ fontSize: 11, color: 'var(--text-secondary)' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* Districts and Recent */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 20 }}>
-          {/* Top Districts */}
-          <div className="card">
-            <div className="card-header" style={{ marginBottom: 12 }}>
-              <span className="card-title">Highest Median Prices</span>
-              <ArrowUpRight size={14} style={{ color: '#22c55e' }} />
-            </div>
-            <div className="card-body" style={{ paddingTop: 4 }}>
-              {stats.topDistricts.length === 0 ? (
-                <p className="text-muted" style={{ fontSize: 13 }}>No data yet.</p>
+              {stats.byLandType.length === 0 ? (
+                <p className="text-muted" style={{ fontSize: 13, textAlign: 'center', padding: '40px 0' }}>No property records yet.</p>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {stats.topDistricts.map((d, i) => (
-                    <DistrictRow key={d.district} rank={i + 1} district={d.district} median={d.median} count={d.count} variant="top" />
-                  ))}
-                </div>
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie
+                      data={stats.byLandType.map((t) => ({
+                        name: LAND_TYPE_LABELS[t.type] ?? t.type,
+                        value: t.count,
+                        color: TYPE_COLORS[t.type] ?? '#64748b',
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      dataKey="value"
+                      labelLine={false}
+                    >
+                      {stats.byLandType.map((t, i) => (
+                        <Cell key={i} fill={TYPE_COLORS[t.type] ?? '#64748b'} />
+                      ))}
+                    </Pie>
+                    <Tooltip {...CHART_TOOLTIP_STYLE} formatter={(v: any) => [v, 'Records']} />
+                    <Legend
+                      iconType="circle"
+                      wrapperStyle={{ fontSize: 11, color: 'var(--text-secondary)' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               )}
             </div>
           </div>
@@ -172,7 +175,13 @@ export default function DashboardPage({ onAddNew }: Props) {
           <div className="card">
             <div className="card-header" style={{ marginBottom: 12 }}>
               <span className="card-title">Recently Added</span>
-              <Calendar size={14} style={{ color: 'var(--text-muted)' }} />
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => navigate('/records')}
+                style={{ fontSize: 11, padding: '2px 8px', height: 'auto', color: '#60a5fa' }}
+              >
+                View all ({stats.totalRecords}) →
+              </button>
             </div>
             <div className="card-body" style={{ paddingTop: 4 }}>
               {stats.recentRecords.length === 0 ? (
@@ -184,19 +193,18 @@ export default function DashboardPage({ onAddNew }: Props) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {stats.recentRecords.map((r) => (
                     <div key={r.id} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                      padding: '8px 0', borderBottom: '1px solid var(--border-subtle)',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '10px 0', borderBottom: '1px solid var(--border-subtle)',
                     }}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span className="truncate">{r.title}</span>
-                          {r.isDemoData && <span className="badge badge-demo" style={{ fontSize: 9 }}>DEMO</span>}
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }} className="truncate">
+                          {r.title}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                          {r.district} · {formatDate(r.valuationDate)}
+                          {r.town}, {r.district} · {formatDate(r.valuationDate)}
                         </div>
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-400)', flexShrink: 0, marginLeft: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#34d399', flexShrink: 0, marginLeft: 12 }}>
                         {formatLKR(r.pricePerPerch, true)}/P
                       </div>
                     </div>
@@ -208,12 +216,12 @@ export default function DashboardPage({ onAddNew }: Props) {
         </div>
 
         {/* Price Distribution Bar */}
-        <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card">
           <div className="card-header">
             <span className="card-title">Price Distribution (per perch)</span>
           </div>
           <div className="card-body">
-            <PriceDistributionBars records={db.getAll()} />
+            <PriceDistributionBars records={allRecords} />
           </div>
         </div>
       </div>
@@ -235,30 +243,6 @@ function StatCard({ icon, iconBg, iconColor, label, value, sub }: {
       <div className="stat-card-label">{label}</div>
       <div className="stat-card-value">{value}</div>
       <div className="stat-card-sub">{sub}</div>
-    </div>
-  );
-}
-
-function DistrictRow({ rank, district, median, count, variant }: {
-  rank: number; district: string; median: number; count: number; variant: 'top' | 'bottom';
-}) {
-  const color = variant === 'top' ? '#22c55e' : '#ef4444';
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div style={{
-        width: 24, height: 24, borderRadius: '50%',
-        background: `${color}20`, color, fontSize: 11, fontWeight: 700,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-      }}>
-        {rank}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{district}</div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{count} record{count !== 1 ? 's' : ''}</div>
-      </div>
-      <div style={{ fontSize: 13, fontWeight: 600, color, flexShrink: 0 }}>
-        {formatLKR(median, true)}/P
-      </div>
     </div>
   );
 }

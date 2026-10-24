@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Map, PlusCircle, List, BarChart3, LogOut, MapPin, Menu, X, Eye,
+  LayoutDashboard, Map, PlusCircle, List, BarChart3, LogOut, MapPin, Menu, X, Eye, Users,
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
@@ -10,8 +10,8 @@ import DashboardPage from './pages/DashboardPage';
 import MapPage from './pages/MapPage';
 import RecordsPage from './pages/RecordsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
-import DemoPage from './pages/DemoPage';
 import AddEditValuationModal from './components/AddEditValuationModal';
+import UserManagementModal from './components/UserManagementModal';
 import './index.css';
 
 import type { GPSCoordinates } from './types';
@@ -21,8 +21,9 @@ import { db } from './services/db';
 db.setEnvironment('live');
 
 function AppShell() {
-  const { user, logout, canEdit } = useAuth();
+  const { user, logout, canEdit, canAdmin } = useAuth();
   const [addModal, setAddModal] = React.useState<{ open: boolean; initialCoords?: GPSCoordinates }>({ open: false });
+  const [usersModal, setUsersModal] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   if (!user) return <LoginPage />;
@@ -116,6 +117,19 @@ function AppShell() {
                 style={{ color: '#10b981', fontWeight: 600 }}
               >
                 <PlusCircle size={16} /> Add Valuation
+              </button>
+            </>
+          )}
+
+          {canAdmin && (
+            <>
+              <div className="nav-section-label" style={{ marginTop: 8 }}>Administration</div>
+              <button
+                className="nav-item"
+                onClick={() => { setUsersModal(true); setSidebarOpen(false); }}
+                style={{ color: '#60a5fa' }}
+              >
+                <Users size={16} /> Staff Users
               </button>
             </>
           )}
@@ -218,6 +232,12 @@ function AppShell() {
           onClose={() => setAddModal({ open: false })}
         />
       )}
+
+      {usersModal && canAdmin && (
+        <UserManagementModal
+          onClose={() => setUsersModal(false)}
+        />
+      )}
     </div>
   );
 }
@@ -225,20 +245,11 @@ function AppShell() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Hidden developer demo route – no auth required */}
-        <Route path="/demo/*" element={<DemoPage />} />
-        <Route path="/demo" element={<Navigate to="/demo/dashboard" replace />} />
-
-        {/* Main live app */}
-        <Route path="/*" element={
-          <AuthProvider>
-            <ToastProvider>
-              <AppShell />
-            </ToastProvider>
-          </AuthProvider>
-        } />
-      </Routes>
+      <AuthProvider>
+        <ToastProvider>
+          <AppShell />
+        </ToastProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

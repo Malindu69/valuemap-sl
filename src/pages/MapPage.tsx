@@ -58,6 +58,46 @@ function createClickTargetIcon(): L.DivIcon {
   });
 }
 
+function createHeatSpotIcon(color: string, size = 26): L.DivIcon {
+  return L.divIcon({
+    className: '',
+    html: `
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        border-radius: 50%;
+        background: radial-gradient(circle, ${color} 0%, ${color} 45%, transparent 100%);
+        box-shadow: 0 0 14px ${color}, 0 0 24px ${color};
+        cursor: pointer;
+        border: 2px solid rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <div style="width: 6px; height: 6px; border-radius: 50%; background: #ffffff;"></div>
+      </div>
+    `,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  });
+}
+
+const HEAT_LEVELS = [
+  { min: 5000000, color: '#ef4444', label: '> 5M / perch (Highest)', radius: 1800 },
+  { min: 2500000, color: '#f97316', label: '2.5M - 5M / perch (High)', radius: 1400 },
+  { min: 1500000, color: '#eab308', label: '1.5M - 2.5M / perch (Moderate)', radius: 1100 },
+  { min: 800000, color: '#10b981', label: '800K - 1.5M / perch (Mid)', radius: 900 },
+  { min: 0, color: '#06b6d4', label: '< 800K / perch (Affordable)', radius: 800 },
+];
+
+function getHeatLevel(price: number) {
+  for (const level of HEAT_LEVELS) {
+    if (price >= level.min) return level;
+  }
+  return HEAT_LEVELS[HEAT_LEVELS.length - 1];
+}
+
 // ─── Map Click Handler ────────────────────────────────────────────────────
 
 function MapClickHandler({
@@ -194,7 +234,7 @@ export default function MapPage({ onAddNew }: Props) {
 
         {/* View Mode Toggle */}
         <div style={{ display: 'flex', gap: 3, background: 'var(--surface-2)', borderRadius: 'var(--radius)', padding: 3 }}>
-          {([['markers', 'Pins'], ['price-range', 'Price Range']] as [MapMode, string][]).map(([m, label]) => (
+          {([['markers', 'Pins'], ['price-range', 'Price Range'], ['heatmap', 'Heatmap 🔥']] as [MapMode, string][]).map(([m, label]) => (
             <button
               key={m}
               onClick={() => setMode(m)}
@@ -203,6 +243,7 @@ export default function MapPage({ onAddNew }: Props) {
                 padding: '4px 10px', border: 'none',
                 background: mode === m ? 'var(--brand-600)' : 'transparent',
                 color: mode === m ? '#fff' : 'var(--text-secondary)',
+                fontWeight: mode === m ? 600 : 500,
               }}
             >
               {label}
@@ -358,8 +399,67 @@ export default function MapPage({ onAddNew }: Props) {
 
           {flyTarget && <FlyTo center={flyTarget.center} zoom={flyTarget.zoom} />}
 
-          {/* Valuation Markers with Hover Tooltips */}
-          {filtered.map((r) => {
+          {/* Heatmap Mode: Glowing heat circles and heat spot points (No Pins!) */}
+          {mode === 'heatmap' && filtered.map((r) => {
+            const heat = getHeatLevel(r.pricePerPerch);
+            return (
+              <React.Fragment key={`heat_${r.id}`}>
+                {/* Outer heat gradient diffusion circle */}
+                <Circle
+                  center={[r.coordinates.lat, r.coordinates.lng]}
+                  radius={heat.radius}
+                  pathOptions={{
+                    fillColor: heat.color,
+                    fillOpacity: 0.22,
+                    stroke: false,
+                  }}
+                />
+                {/* Core intensity circle */}
+                <Circle
+                  center={[r.coordinates.lat, r.coordinates.lng]}
+                  radius={heat.radius * 0.42}
+                  pathOptions={{
+                    fillColor: heat.color,
+                    fillOpacity: 0.48,
+                    color: '#ffffff',
+                    weight: 1.5,
+                    stroke: true,
+                  }}
+                />
+                {/* Interactive heat spot */}
+                <Marker
+                  position={[r.coordinates.lat, r.coordinates.lng]}
+                  icon={createHeatSpotIcon(heat.color)}
+                  eventHandlers={{
+                    click: () => {
+                      setSelectedRecord(r);
+                      setClickedLocation(null);
+                    },
+                  }}
+                >
+                  <Tooltip direction="top" offset={[0, -16]} opacity={1} className="val-tooltip">
+                    <div style={{ minWidth: 170, textAlign: 'left', lineHeight: 1.35 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: heat.color, letterSpacing: '-0.01em' }}>
+                        {formatLKR(r.pricePerPerch, true)} <span style={{ fontSize: 10, fontWeight: 500, color: '#94a3b8' }}>/ perch</span>
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#f8fafc', marginTop: 3 }}>
+                        {r.title}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 2 }}>
+                        {r.town}, {r.district} · {formatExtent(r.landExtent)}
+                      </div>
+                      <div style={{ fontSize: 9, color: '#60a5fa', marginTop: 4, fontWeight: 500 }}>
+                        👉 Click to view valuation details
+                      </div>
+                    </div>
+                  </Tooltip>
+                </Marker>
+              </React.Fragment>
+            );
+          })}
+
+          {/* Regular Pin Markers (Pins and Price Range modes) */}
+          {mode !== 'heatmap' && filtered.map((r) => {
             const color = mode === 'price-range' ? colorForPrice(r.pricePerPerch) : '#2563eb';
             const icon = createPinIcon(color);
             return (
@@ -408,11 +508,6 @@ export default function MapPage({ onAddNew }: Props) {
                       <PopupStat label="Land Extent" value={formatExtent(r.landExtent)} />
                       <PopupStat label="Valuation Date" value={formatDate(r.valuationDate)} />
                     </div>
-                    {r.isDemoData && (
-                      <div style={{ marginTop: 8, fontSize: 10, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', padding: '3px 6px', borderRadius: 4 }}>
-                        ⚠ Demo Record
-                      </div>
-                    )}
                     <button
                       className="btn btn-primary btn-sm"
                       style={{ width: '100%', marginTop: 10, fontSize: 11, padding: '5px 8px' }}
@@ -450,6 +545,27 @@ export default function MapPage({ onAddNew }: Props) {
             </>
           )}
         </MapContainer>
+
+        {/* Legend (Heatmap mode) */}
+        {mode === 'heatmap' && (
+          <div style={{
+            position: 'absolute', bottom: 24, left: 16, zIndex: 990,
+            background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            borderRadius: 'var(--radius)', padding: '12px 14px',
+            boxShadow: 'var(--shadow)',
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#f87171', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              🔥 Price Heatmap Intensity
+            </div>
+            {HEAT_LEVELS.map((lvl) => (
+              <div key={lvl.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <div style={{ width: 12, height: 12, borderRadius: '50%', background: lvl.color, boxShadow: `0 0 6px ${lvl.color}`, flexShrink: 0 }} />
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{lvl.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Legend (Price-range mode) */}
         {mode === 'price-range' && (
