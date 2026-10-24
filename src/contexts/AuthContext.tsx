@@ -100,16 +100,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       if (isSupabaseConfigured) {
-        // Query Supabase app_users table directly
-        const { data, error } = await supabase
+        // Try matching by username first (case-insensitive)
+        let { data, error } = await supabase
           .from('app_users')
           .select('*')
-          .or(`username.ilike.${cleanId},email.ilike.${cleanId}`)
+          .ilike('username', cleanId)
           .limit(1);
+
+        // If not found by username, try by email
+        if (!error && (!data || data.length === 0)) {
+          const result = await supabase
+            .from('app_users')
+            .select('*')
+            .ilike('email', cleanId)
+            .limit(1);
+          data = result.data;
+          error = result.error;
+        }
 
         if (error) {
           setState((s) => ({ ...s, isLoading: false }));
-          return { error: `Database error: ${error.message}` };
+          // Surface the real error (likely RLS/permissions issue)
+          return { error: `Database error: ${error.message}. Check Supabase RLS policies for app_users table.` };
         }
 
         if (!data || data.length === 0) {
@@ -118,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const userRow = data[0];
-        // Validate password directly against DB
+        // Validate password directly against DB (plain text comparison)
         if (userRow.password !== password) {
           setState((s) => ({ ...s, isLoading: false }));
           return { error: 'Invalid username/email or password' };
@@ -140,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: 'Supabase database is not configured' };
     } catch (err) {
       setState((s) => ({ ...s, isLoading: false }));
-      return { error: 'An unexpected error occurred during login' };
+      return { error: `Unexpected error: ${String(err)}` };
     }
   }, []);
 
